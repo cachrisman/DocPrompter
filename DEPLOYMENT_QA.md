@@ -12,6 +12,12 @@
 
    That is fine for owner-only development, but it is not the same as broader internal testing. Widen access only when the target audience and auth model are explicit.
 
+3. **Wire the reader URL intentionally for standalone add-on testing.**
+   Recommended setup:
+   - create a reader web app deployment
+   - copy its `/exec` URL into the script property `DOCPROMPTER_READER_WEB_APP_URL`
+   - then update the editor add-on deployment
+
 ## Deployment checklist
 
 1. Create the Apps Script project and add:
@@ -26,7 +32,9 @@
    - Docs scope
    - container UI scope
    - `script.scriptapp` scope
+   - `userinfo.email` scope if detached-reader identity diagnostics are enabled
    - add-on config
+   - `openLinkUrlPrefixes` for the detached reader URL
    - web app config with an access level that matches the intended audience
 
 3. Deploy the web app with:
@@ -34,21 +42,26 @@
    - **Who has access:** the intended test audience
    - Current committed default: owner-only (`MYSELF`)
 
-4. Test in this order:
-   - custom Docs menu flow first
+4. Save the web app `/exec` URL into the script property:
+   - `DOCPROMPTER_READER_WEB_APP_URL`
+
+5. Create or update the editor add-on deployment and install the test deployment for your account if needed.
+
+6. Test in this order:
+   - `Extensions -> DocPrompter` menu flow first
    - Workspace Add-on homepage/card flow second
 
-5. Verify the reader launch passes:
+7. Verify the reader launch passes:
    - `docId`
    - `sourceMode`
    - `selectionToken` when relevant
 
-6. Verify selection snapshot cache behavior:
+8. Verify selection snapshot cache behavior:
    - selection token is created
    - token is readable by the reader
    - expired token falls back gracefully to full document
 
-7. Test browser behavior:
+9. Test browser behavior:
    - popup blockers
    - new tab vs new window behavior
    - keyboard shortcuts in the standalone reader
@@ -81,9 +94,11 @@
 - Refresh preserves approximate reading position.
 
 ### Add-on/runtime
-- Custom menu launch works from a bound Google Doc.
+- `Extensions -> DocPrompter` appears after install or refresh.
+- Editor add-on test deployment opens from a standalone project.
 - Workspace Add-on homepage flow opens the reader directly.
 - File-scope permission flow is understandable.
+- Reader failures surface runtime diagnostics in the execution log and in the reader debug panel.
 
 ## Known issues
 

@@ -96,6 +96,16 @@
         statusEl.textContent = message || '';
       }
 
+      function logClientEvent(eventName, payload) {
+        if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+        google.script.run
+          .withFailureHandler(function () {
+            /* keep diagnostics best-effort */
+          })
+          .logClientEvent(eventName, payload || {});
+      }
+
       function getSelectedSourceMode() {
         const checked = document.querySelector('input[name="sourceMode"]:checked');
         return checked ? checked.value : 'document';
@@ -103,6 +113,10 @@
 
       function initialize() {
         setStatus('Checking document...');
+        logClientEvent('launch_dialog_initialized', {
+          href: window.location.href,
+          userAgent: navigator.userAgent
+        });
 
         google.script.run
           .withSuccessHandler(function (context) {
@@ -120,6 +134,10 @@
               selectionHint.textContent = 'No selection found. Entire document will be used.';
             }
 
+            logClientEvent('launch_context_success', {
+              hasSelection: hasSelection,
+              docId: launchContext.docId || ''
+            });
             setStatus('');
           })
           .withFailureHandler(function (err) {
@@ -127,6 +145,9 @@
             documentRadio.checked = true;
             selectionHint.textContent = 'Could not inspect selection. Entire document will be used.';
             setStatus('Error: ' + (err && err.message ? err.message : err));
+            logClientEvent('launch_context_error', {
+              error: err && err.message ? err.message : String(err)
+            });
           })
           .getLaunchContext();
       }
@@ -135,6 +156,10 @@
         const sourceMode = getSelectedSourceMode();
         openBtn.disabled = true;
         setStatus('Opening reader...');
+        logClientEvent('launch_button_clicked', {
+          sourceMode: sourceMode,
+          docId: launchContext && launchContext.docId ? launchContext.docId : ''
+        });
 
         google.script.run
           .withSuccessHandler(function (launch) {
@@ -158,6 +183,11 @@
               readerWindow.focus();
             }
 
+            logClientEvent('reader_window_opened', {
+              launchUrl: launch.url,
+              docId: launch.docId,
+              sourceMode: launch.sourceMode || sourceMode
+            });
             setStatus('Reader opened in a new tab/window.');
             openBtn.disabled = false;
             if (google.script && google.script.host && google.script.host.close) {
@@ -167,6 +197,10 @@
           .withFailureHandler(function (err) {
             setStatus('Error: ' + (err && err.message ? err.message : err));
             openBtn.disabled = false;
+            logClientEvent('prepare_reader_launch_error', {
+              error: err && err.message ? err.message : String(err),
+              sourceMode: sourceMode
+            });
           })
           .prepareReaderLaunch(sourceMode);
       });

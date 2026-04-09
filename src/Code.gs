@@ -1,19 +1,58 @@
-function onOpen() {
+function onOpen(e) {
   try {
-    DocumentApp.getUi()
-      .createMenu('DocPrompter')
+    logDiagnostic_('on_open_start', {
+      triggerType: 'onOpen'
+    });
+
+    createDocPrompterMenu_()
       .addItem('Open Reading View', 'showLaunchUi')
       .addToUi();
+
+    logDiagnostic_('on_open_success', {
+      triggerType: 'onOpen'
+    });
   } catch (err) {
+    logDiagnostic_('on_open_error', {
+      error: err
+    });
     Logger.log('onOpen menu creation skipped: ' + err);
   }
 }
 
+function onInstall(e) {
+  logDiagnostic_('on_install', {
+    triggerType: 'onInstall'
+  });
+  onOpen(e);
+}
+
 function showLaunchUi() {
-  const html = HtmlService.createHtmlOutputFromFile('Launch')
-    .setWidth(360)
-    .setHeight(220);
-  DocumentApp.getUi().showModalDialog(html, 'DocPrompter');
+  try {
+    const doc = DocumentApp.getActiveDocument();
+    logDiagnostic_('show_launch_ui_start', {
+      docId: doc ? doc.getId() : '',
+      title: doc ? doc.getName() : ''
+    });
+
+    const html = HtmlService.createHtmlOutputFromFile('Launch')
+      .setWidth(380)
+      .setHeight(260);
+    DocumentApp.getUi().showModalDialog(html, 'DocPrompter');
+
+    logDiagnostic_('show_launch_ui_success', {
+      docId: doc ? doc.getId() : ''
+    });
+  } catch (err) {
+    logDiagnostic_('show_launch_ui_error', {
+      error: err
+    });
+    throw err;
+  }
+}
+
+function createDocPrompterMenu_() {
+  const ui = DocumentApp.getUi();
+  return ui.createAddonMenu ? ui.createAddonMenu() : ui.createMenu('DocPrompter');
 }
 
 function buildAddonHome_(e) {
@@ -104,6 +143,9 @@ function openLaunchDialogFromAddon_(e) {
       )
       .build();
   } catch (err) {
+    logDiagnostic_('addon_open_launch_dialog_error', {
+      error: err
+    });
     return CardService.newActionResponseBuilder()
       .setNotification(
         CardService.newNotification().setText('Could not open dialog here. Use “Open full document” or “Open current selection” instead.')
@@ -137,6 +179,14 @@ function buildAddonOpenLinkResponse_(sourceMode) {
     .setUrl(url)
     .setOpenAs(CardService.OpenAs.FULL_SIZE)
     .setOnClose(CardService.OnClose.NOTHING);
+
+  logDiagnostic_('addon_open_link_response', {
+    requestedSourceMode: sourceMode || 'document',
+    resolvedSourceMode: launch.sourceMode || 'document',
+    docId: launch.docId,
+    launchUrl: launch.url,
+    finalUrl: url
+  });
 
   return CardService.newActionResponseBuilder()
     .setOpenLink(openLink)

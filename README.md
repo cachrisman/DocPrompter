@@ -35,22 +35,32 @@ A user writes or rehearses a presentation script in Google Docs, launches DocPro
 - Separate web view only
 - Automatic scrolling by default
 - Manual line stepping at any time
+- Click any line to make it active
+- Double-click any line to start playback from there
+- Jump to beginning / end controls
 - Current-line visual indicator
 - Reading progress
 - Estimated time remaining
+- Elapsed time and estimated total read time
+- Persistent current-section context near progress
 - Jump to section
 - Refresh from source doc
 - Optional polling-based refresh
 - Light and dark themes
-- Focus mode that fades controls unless hovered
+- Focus mode that hides secondary chrome after idle
+- Left-aligned or centered reading text
+- Built-in help overlay for shortcuts and controls
 
 ### Keyboard shortcuts
 - `Space` = play/pause
 - `Left Arrow` or `Up Arrow` = back one line
 - `Right Arrow` or `Down Arrow` = forward one line
+- `Home` = jump to beginning
+- `End` = jump to end
 - `[` = slower
 - `]` = faster
 - `R` = refresh
+- `?` = show or hide help
 - `D` = toggle dark mode
 - `F` = toggle focus mode
 
@@ -222,7 +232,7 @@ Example conceptual payload:
 ## File overview
 
 ### `Code.gs`
-Adds the Docs menu and opens the launch dialog.
+Creates the editor add-on menu and opens the launch dialog.
 
 ### `Launch.html`
 Launch UI that checks for a selection, defaults source choice, and opens the reader with the correct query parameters.
@@ -246,15 +256,28 @@ Reader styles include used by the reader template for current-line highlighting,
 
 ## Current implementation notes
 
-### OAuth scope requirement
-The reader launch flow calls `ScriptApp.getService().getUrl()`, so the manifest must include:
+### Reader URL requirement
+The standalone add-on and the detached reader are two deployment surfaces.
+DocPrompter now supports an explicit script property handoff:
+
+- `DOCPROMPTER_READER_WEB_APP_URL`
+
+That property should contain the deployed reader web app `/exec` URL.
+If the property is not set, the launch flow falls back to `ScriptApp.getService().getUrl()`, so the manifest still includes:
 
 - `https://www.googleapis.com/auth/script.scriptapp`
 
-Without that scope, both the custom menu launcher and the add-on card launcher will fail at runtime.
+Without either a configured reader URL or a same-project web app deployment, the add-on cannot open the detached reader.
+
+### Diagnostics scope
+The manifest also includes:
+
+- `https://www.googleapis.com/auth/userinfo.email`
+
+That scope is used only for detached-reader diagnostics so execution logs and the in-reader debug panel can report which account context the web app is actually running under.
 
 ### Current launch recommendation
-For the current MVP, the **custom Docs menu** is still the most predictable launch path.
+For the current standalone MVP, the **editor add-on menu under `Extensions -> DocPrompter`** is the primary launch path.
 The **Docs add-on homepage** is supported, but it should stay secondary until a real deployed runtime pass confirms the card-flow behavior across the intended surfaces.
 
 ### Selection mode caveat
@@ -316,9 +339,10 @@ The MVP is complete when:
    - `ReaderView.html`
    - `ReaderStyles.html`
    - `appsscript.json`
-3. Bind the script to a Google Doc during development, or package it as an Editor Add-on later
-4. Run `onOpen()` once with permissions
-5. Reload the doc and use the `DocPrompter` menu
+3. Create a **Web app** deployment for the reader
+4. Copy the deployed `/exec` URL into the script property `DOCPROMPTER_READER_WEB_APP_URL`
+5. Create or update the **Editor add-on** test deployment
+6. Open the test doc, refresh it if needed, and use `Extensions -> DocPrompter`
 
 ---
 
@@ -331,16 +355,18 @@ Turn the current Google Doc or selected text into a clean presenter reading wind
 This version reduces add-on runtime brittleness in a few important ways:
 
 - The add-on homepage now prefers **OpenLink** actions for “Open full document” and “Open current selection” instead of relying on opening a Docs modal dialog from a card action. That is generally more reliable across add-on surfaces.
-- The launch dialog is still available for the bound-script custom menu flow inside Google Docs.
+- The launch dialog is still available from the editor add-on menu inside Google Docs.
 - The separate reader now relies on an explicit **docId** and uses `DocumentApp.openById(docId)` instead of assuming an active editor context.
 - The web app is configured to run as **USER_ACCESSING**, which is a safer fit for reading the current user’s document in the separate reader flow.
+- The standalone add-on now uses `createAddonMenu()` and `onInstall(e)` so the menu appears in the expected editor add-on surface.
+- The detached reader now supports an explicit `DOCPROMPTER_READER_WEB_APP_URL` script property so the add-on and reader deployments can be wired together intentionally.
 - Selection mode is intentionally a launch-time snapshot using a cached `selectionToken`. This avoids fragile assumptions about the current live selection once the separate reader window is open.
 
 ### Practical recommendation
 
 Use the project in this order of preference:
 
-1. **Inside a Google Doc via the custom menu** for the smoothest MVP workflow
+1. **Inside a Google Doc via `Extensions -> DocPrompter`** for the smoothest MVP workflow
 2. **Inside the Docs add-on card homepage** using “Open full document” or “Open current selection”
 3. Treat “Open launch dialog” from the card surface as a convenience fallback, not the primary path
 
@@ -354,6 +380,37 @@ Use the project in this order of preference:
 ---
 
 ## Changelog
+
+### v3.5.8 (2026-04-09)
+- Added a built-in `?` help overlay that opens automatically on first use and documents the main reader controls and shortcuts.
+- Added click-to-activate and double-click-to-play behavior on reader lines so navigation can stay lightweight even without the footer controls.
+- Added persistent current-section context plus elapsed/total timing readouts beside the existing progress and ETA indicators.
+- Updated focus mode so the top bar and secondary chrome fade out after idle while the primary transport controls remain accessible.
+
+### v3.5.7 (2026-04-09)
+- Reworked the detached reader controls so transport actions sit at the bottom center, speed and font controls sit at the bottom left, and Start/End jump buttons are available alongside Back/Play/Forward.
+- Tightened the autoplay speed range, expanded the font-size range, added a left-vs-centered line alignment toggle, and persisted the new alignment preference locally.
+- Switched reader ETA from a flat per-line estimate to a text-length-and-punctuation weighted duration model so timing is more realistic for mixed short and long lines.
+- Updated active-line scrolling so oversized lines are kept fully visible when possible and autoplay scroll motion eases smoothly instead of snapping between lines.
+- Increased server-side display-line limits and added short-orphan rebalancing so long paragraphs are less likely to break into awkward detached fragments.
+
+### v3.5.6 (2026-04-09)
+- Fixed detached-reader bootstrap values being double-encoded in `ReaderView.html`, which could wrap `docId`, `sourceMode`, and `selectionToken` in literal quotes.
+- Added defensive parameter normalization on the reader server so quoted launch parameters no longer break `doGet`, `getDocumentPayloadById`, or `getDocumentVersionById`.
+- Added a normalization diagnostic log entry to make malformed reader query parameters visible in the execution log.
+
+### v3.5.4 (2026-04-09)
+- Added `onInstall(e)` and switched the menu to `createAddonMenu()` so the standalone editor add-on installs into the expected Docs surface.
+- Added `addOns.common.openLinkUrlPrefixes` so the add-on can open the detached reader URL in versioned deployments.
+- Added an explicit `DOCPROMPTER_READER_WEB_APP_URL` script property contract for the detached reader, with a same-project web app fallback for local testing.
+- Removed the stale `@OnlyCurrentDoc` annotation and kept the broader Docs scope aligned with the current `openById(docId)` reader architecture.
+- Increased the launch dialog size slightly so the default content no longer overflows as easily.
+
+### v3.5.5 (2026-04-09)
+- Added structured diagnostics around the add-on launch flow, detached reader bootstrap, and `getDocumentPayloadById` failures.
+- Added a reader-side debug panel that surfaces server runtime details when document loading fails.
+- Added detached-web-app authorization checks and logging ahead of `DocumentApp.openById(docId)`.
+- Added the `userinfo.email` scope so diagnostics can report the available active/effective account emails from the detached reader context.
 
 ### v3.5.3 (2026-04-09)
 - Fixed the reader stylesheet include so `ReaderStyles.html` is injected correctly by `ReaderView.html`.
