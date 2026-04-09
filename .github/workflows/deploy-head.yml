@@ -13,32 +13,27 @@ jobs:
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.9.0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
-          cache: npm
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f package.json ]; then
-            npm install
-          else
-            echo "No package.json found, skipping npm install"
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Run checks
         run: |
-          if [ -f package.json ]; then
-            npm run lint --if-present
-            npm test --if-present
-          else
-            echo "No package.json found, skipping checks"
-          fi
+          pnpm run --if-present lint
+          pnpm run --if-present test
 
       - name: Write clasp credentials
         run: |
@@ -46,5 +41,4 @@ jobs:
           printf '%s' '${{ secrets.CLASP_JSON }}' > .clasp.json
 
       - name: Push latest code to Apps Script HEAD
-        run: |
-          npx @google/clasp push --force
+        run: pnpm exec clasp push --force

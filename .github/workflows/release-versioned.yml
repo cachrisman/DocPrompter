@@ -13,47 +13,41 @@ jobs:
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.9.0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
-          cache: npm
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f package.json ]; then
-            npm install
-          else
-            echo "No package.json found, skipping npm install"
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Run checks
         run: |
-          if [ -f package.json ]; then
-            npm run lint --if-present
-            npm test --if-present
-          else
-            echo "No package.json found, skipping checks"
-          fi
+          pnpm run --if-present lint
+          pnpm run --if-present test
 
       - name: Write clasp credentials
         run: |
           printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
           printf '%s' '${{ secrets.CLASP_JSON }}' > .clasp.json
 
-      - name: Push latest code
-        run: |
-          npx @google/clasp push --force
+      - name: Push latest code to Apps Script HEAD
+        run: pnpm exec clasp push --force
 
       - name: Create Apps Script version
         id: create_version
         shell: bash
         run: |
-          VERSION_OUTPUT="$(npx @google/clasp version "${{ github.event.release.tag_name }}")"
+          VERSION_OUTPUT="$(pnpm exec clasp version "${{ github.event.release.tag_name }}")"
           echo "$VERSION_OUTPUT"
           VERSION_NUMBER="$(echo "$VERSION_OUTPUT" | sed -n 's/.*Created version \([0-9][0-9]*\).*/\1/p')"
           if [ -z "$VERSION_NUMBER" ]; then
@@ -64,7 +58,7 @@ jobs:
 
       - name: Update existing deployment to new version
         run: |
-          npx @google/clasp redeploy \
+          pnpm exec clasp redeploy \
             "${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}" \
             "${{ steps.create_version.outputs.version_number }}" \
             "GitHub Release ${{ github.event.release.tag_name }}"
