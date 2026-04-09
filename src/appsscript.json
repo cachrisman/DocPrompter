@@ -1,0 +1,36 @@
+{
+  "timeZone": "Europe/Berlin",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.scriptapp"
+  ],
+  "webapp": {
+    "access": "MYSELF",
+    "executeAs": "USER_ACCESSING"
+  },
+  "addOns": {
+    "common": {
+      "name": "DocPrompter",
+      "logoUrl": "https://www.gstatic.com/images/branding/product/2x/docs_64dp.png",
+      "layoutProperties": {
+        "primaryColor": "#1a73e8"
+      },
+      "useLocaleFromApp": true,
+      "homepageTrigger": {
+        "runFunction": "buildAddonHome_"
+      }
+    },
+    "docs": {
+      "homepageTrigger": {
+        "runFunction": "buildAddonHome_"
+      },
+      "onFileScopeGrantedTrigger": {
+        "runFunction": "onFileScopeGranted_"
+      }
+    }
+  }
+}

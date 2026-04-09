@@ -1,0 +1,70 @@
+name: Release Apps Script Versioned Deployment
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install
+          else
+            echo "No package.json found, skipping npm install"
+          fi
+
+      - name: Run checks
+        run: |
+          if [ -f package.json ]; then
+            npm run lint --if-present
+            npm test --if-present
+          else
+            echo "No package.json found, skipping checks"
+          fi
+
+      - name: Write clasp credentials
+        run: |
+          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          printf '%s' '${{ secrets.CLASP_JSON }}' > .clasp.json
+
+      - name: Push latest code
+        run: |
+          npx @google/clasp push --force
+
+      - name: Create Apps Script version
+        id: create_version
+        shell: bash
+        run: |
+          VERSION_OUTPUT="$(npx @google/clasp version "${{ github.event.release.tag_name }}")"
+          echo "$VERSION_OUTPUT"
+          VERSION_NUMBER="$(echo "$VERSION_OUTPUT" | sed -n 's/.*Created version \([0-9][0-9]*\).*/\1/p')"
+          if [ -z "$VERSION_NUMBER" ]; then
+            echo "Failed to parse Apps Script version number"
+            exit 1
+          fi
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Update existing deployment to new version
+        run: |
+          npx @google/clasp redeploy \
+            "${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}" \
+            "${{ steps.create_version.outputs.version_number }}" \
+            "GitHub Release ${{ github.event.release.tag_name }}"
