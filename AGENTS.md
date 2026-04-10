@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project
-DocPrompter is a Google Docs add-on plus separate Apps Script web app that turns the current Google Doc or selection into a presenter-friendly reading window for video calls.
+DocPrompter is a Google Docs add-on plus separate Apps Script web app that turns the current Google Doc into a presenter-friendly reading window for video calls.
 
 This repository is the source of truth for the Apps Script project.
 
@@ -24,25 +24,28 @@ DocPrompter is not:
 
 ## Architecture
 
-The project has two main parts:
+The project has three main runtime layers:
 
 1. Google Docs add-on / launcher
    - menu entry
-   - launch UI
-   - selection detection
-   - launch context generation
+   - Docs add-on homepage
+   - launch bridge for the menu flow
 
 2. Reader web app
    - standalone Apps Script web app page
    - loads normalized content using explicit `docId`
    - supports highlighting, auto-scroll, keyboard stepping, refresh, and theme/focus state
 
-Key files:
-- `Code.gs`: Docs launcher / add-on entry points
-- `ReaderServer.gs`: server-side reader logic, payload generation, selection snapshot handling, versioning
-- `Launch.html`: launcher UI
-- `ReaderView.html`: reader UI
-- `ReaderStyles.html`: reader styles include used by the reader template
+3. Modular source layout
+   - add-on server code split into focused `.gs` files
+   - reader server code split into focused `.gs` files
+   - reader UI split into HTML include modules for markup, script, and CSS layers
+
+Key entry shells:
+- `Code.gs`: Docs launcher / add-on public entry points
+- `ReaderServer.gs`: public reader-server entry points
+- `ReaderView.html`: reader page shell
+- `ReaderStyles.html`: reader styles shell
 - `appsscript.json`: Apps Script manifest
 
 ---
@@ -55,9 +58,9 @@ Do not add complex product logic to the Docs launcher if it belongs in the reade
 ### 2. Prefer explicit `docId`
 Do not rely on `getActiveDocument()` in standalone reader flows when `docId` can be passed explicitly.
 
-### 3. Selection mode is a snapshot
-Selection mode is a launch-time snapshot and should be treated as such.
-Do not pretend it is a live evolving selection unless that behavior is deliberately implemented.
+### 3. Whole document only
+The supported launch path is the whole active document.
+Do not reintroduce selection-mode launch or snapshot behavior unless that product decision is made explicitly.
 
 ### 4. Preserve wording
 Do not rewrite the user’s script.
@@ -82,6 +85,7 @@ Preserve useful local state such as:
 - focus mode
 - speed
 - font size
+- line alignment
 
 ---
 
@@ -122,7 +126,6 @@ When making changes:
 
 At minimum, validate:
 - full-document launch
-- selection launch
 - popup behavior
 - current-line highlighting
 - keyboard stepping
@@ -150,7 +153,7 @@ Do:
 - update docs when changing behavior
 
 Do not:
-- silently remove working launch paths
+- silently remove working launch paths without documenting the tradeoff
 - introduce AI rewriting behavior
 - over-engineer real-time sync
 - assume Apps Script runtime behavior without noting deployment risk
@@ -163,7 +166,7 @@ Do not:
 Known fragile areas:
 - Apps Script add-on runtime behavior across surfaces
 - CI authentication for `clasp`
-- selection snapshot lifecycle
+- launch bridge behavior across popup settings and browsers
 - refresh position restoration after content edits
 - table normalization assumptions
 

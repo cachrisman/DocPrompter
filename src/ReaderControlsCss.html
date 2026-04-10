@@ -1,0 +1,147 @@
+.controls {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 24px 18px;
+  min-height: 94px;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  transition: opacity 0.18s ease;
+  box-sizing: border-box;
+}
+
+.controls-left,
+.controls-center,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.controls-left {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.controls-center {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  justify-content: center;
+}
+
+.controls-right {
+  margin-left: auto;
+  justify-content: flex-end;
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  flex: 0 0 280px;
+}
+
+.slider-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.slider-control input {
+  width: 140px;
+}
+
+.control-label {
+  min-width: 38px;
+}
+
+.control-value-button {
+  min-width: 52px;
+  padding: 6px 8px;
+  text-align: right;
+}
+
+.control-value-input {
+  width: 66px;
+  padding: 6px 8px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: right;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+}
+
+.control-value-input::-webkit-outer-spin-button,
+.control-value-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.control-value {
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.8;
+}
+
+.controls-center button {
+  min-width: 72px;
+}
+
+.progress-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.section-text {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  width: 100%;
+}
+
+.progress-text,
+.eta-text {
+  font-size: 12px;
+  opacity: 0.8;
+  text-align: right;
+}
+
+.status-text {
+  font-size: 12px;
+  opacity: 0.72;
+  text-align: right;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eta-text {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+.timing-text {
+  font-size: 12px;
+  opacity: 0.76;
+  text-align: right;
+  margin-bottom: 4px;
+}
+
+progress {
+  width: 100%;
+  height: 10px;
+}

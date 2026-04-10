@@ -1,0 +1,91 @@
+function loadPreferences() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+
+    const prefs = JSON.parse(raw);
+    if (typeof prefs.speed === 'number') state.speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
+    if (typeof prefs.fontSize === 'number') state.fontSize = clamp(prefs.fontSize, FONT_SIZE_MIN, FONT_SIZE_MAX);
+    if (prefs.theme === 'dark' || prefs.theme === 'light') state.theme = prefs.theme;
+    if (typeof prefs.focusMode === 'boolean') state.focusMode = prefs.focusMode;
+    if (
+      prefs.alignmentPreferenceVersion === 2 &&
+      (prefs.lineAlignment === LINE_ALIGNMENT_CENTER || prefs.lineAlignment === LINE_ALIGNMENT_LEFT)
+    ) {
+      state.lineAlignment = prefs.lineAlignment;
+    }
+  } catch (err) {
+    /* ignore bad local state */
+  }
+}
+
+function savePreferences() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      speed: state.speed,
+      fontSize: state.fontSize,
+      theme: state.theme,
+      focusMode: state.focusMode,
+      lineAlignment: state.lineAlignment,
+      alignmentPreferenceVersion: 2
+    }));
+  } catch (err) {
+    /* ignore storage errors */
+  }
+}
+
+function hasSeenHelpOverlay() {
+  try {
+    return localStorage.getItem(HELP_STORAGE_KEY) === '1';
+  } catch (err) {
+    return false;
+  }
+}
+
+function markHelpOverlaySeen() {
+  try {
+    localStorage.setItem(HELP_STORAGE_KEY, '1');
+  } catch (err) {
+    /* ignore storage errors */
+  }
+}
+
+function applyThemeUi() {
+  document.body.classList.toggle('theme-dark', state.theme === 'dark');
+  document.body.classList.toggle('theme-light', state.theme !== 'dark');
+  els.themeBtn.textContent = state.theme === 'dark' ? 'Light mode' : 'Dark mode';
+}
+
+function applyFocusUi() {
+  document.body.classList.toggle('focus-mode', state.focusMode);
+  els.focusBtn.textContent = state.focusMode ? 'Show controls' : 'Focus mode';
+  noteReaderActivity();
+}
+
+function applyAlignmentUi() {
+  document.body.classList.toggle('line-align-center', state.lineAlignment === LINE_ALIGNMENT_CENTER);
+  els.alignBtn.textContent = state.lineAlignment === LINE_ALIGNMENT_CENTER
+    ? 'Alignment: Center'
+    : 'Alignment: Left';
+}
+
+function syncSpeedUi() {
+  els.speedInput.value = state.speed.toFixed(2);
+  els.speedValue.textContent = formatControlValue(state.speed, 2);
+  els.speedValueInput.value = state.speed.toFixed(2);
+}
+
+function syncFontSizeUi() {
+  els.fontSizeInput.value = String(state.fontSize);
+  els.fontSizeValue.textContent = formatControlValue(state.fontSize, 0);
+  els.fontSizeValueInput.value = String(state.fontSize);
+}
+
+function applyPreferenceUi() {
+  syncSpeedUi();
+  syncFontSizeUi();
+  els.readerContent.style.fontSize = state.fontSize + 'px';
+  applyThemeUi();
+  applyFocusUi();
+  applyAlignmentUi();
+}

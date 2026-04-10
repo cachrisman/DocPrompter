@@ -1,0 +1,197 @@
+function bindReaderEvents_() {
+  els.playPauseBtn.addEventListener('click', togglePlayback);
+  els.helpBtn.addEventListener('click', function () {
+    if (els.helpOverlay.hidden) {
+      openHelpOverlay();
+    } else {
+      closeHelpOverlay();
+    }
+  });
+  els.helpCloseBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeHelpOverlay();
+  });
+  els.helpCloseBtn.addEventListener('pointerup', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeHelpOverlay();
+  });
+  els.helpBackdrop.addEventListener('click', function (e) {
+    e.preventDefault();
+    closeHelpOverlay();
+  });
+  els.readerContent.addEventListener('click', function (e) {
+    const lineEl = e.target && e.target.closest ? e.target.closest('.line') : null;
+    if (!lineEl || !els.readerContent.contains(lineEl)) return;
+
+    const lineIndex = parseInt(lineEl.getAttribute('data-line-index'), 10);
+    if (isNaN(lineIndex)) return;
+
+    setActiveLine(lineIndex, true, { force: true, durationMs: 180 });
+  });
+  els.readerContent.addEventListener('dblclick', function (e) {
+    const lineEl = e.target && e.target.closest ? e.target.closest('.line') : null;
+    if (!lineEl || !els.readerContent.contains(lineEl)) return;
+
+    const lineIndex = parseInt(lineEl.getAttribute('data-line-index'), 10);
+    if (isNaN(lineIndex)) return;
+
+    setActiveLine(lineIndex, true, { force: true, durationMs: 180 });
+    startPlayback();
+  });
+  els.lineBackBtn.addEventListener('click', function () {
+    setActiveLine(state.activeLineIndex - 1, true, { force: true, durationMs: 220 });
+  });
+  els.lineForwardBtn.addEventListener('click', function () {
+    setActiveLine(state.activeLineIndex + 1, true, { force: true, durationMs: 220 });
+  });
+  els.lineStartBtn.addEventListener('click', function () {
+    setActiveLine(0, true, { force: true, durationMs: 260 });
+  });
+  els.lineEndBtn.addEventListener('click', function () {
+    setActiveLine(state.lines.length - 1, true, { force: true, durationMs: 260 });
+  });
+  els.speedInput.addEventListener('input', function () {
+    setSpeed(this.value);
+  });
+  els.fontSizeInput.addEventListener('input', function () {
+    setFontSize(this.value, {
+      keepActiveLineVisible: true,
+      durationMs: 220
+    });
+  });
+  els.speedValueBtn.addEventListener('click', function () {
+    openInlineValueEditor('speed');
+  });
+  els.fontSizeValueBtn.addEventListener('click', function () {
+    openInlineValueEditor('font');
+  });
+
+  ['speed', 'font'].forEach(function (kind) {
+    const editor = getValueEditor(kind);
+    editor.input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        closeInlineValueEditor(kind, true);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeInlineValueEditor(kind, false);
+      }
+    });
+    editor.input.addEventListener('blur', function () {
+      closeInlineValueEditor(kind, true);
+    });
+  });
+
+  els.alignBtn.addEventListener('click', function () {
+    state.lineAlignment = state.lineAlignment === LINE_ALIGNMENT_LEFT
+      ? LINE_ALIGNMENT_CENTER
+      : LINE_ALIGNMENT_LEFT;
+    applyAlignmentUi();
+    savePreferences();
+  });
+  els.sectionJump.addEventListener('change', function () {
+    if (!this.value) return;
+    const lineIndex = parseInt(this.value, 10);
+    setActiveLine(lineIndex, true, { force: true, durationMs: 260 });
+  });
+  els.refreshBtn.addEventListener('click', function () {
+    loadPayload({ preserveLine: true });
+  });
+  els.themeBtn.addEventListener('click', toggleTheme);
+  els.focusBtn.addEventListener('click', toggleFocusMode);
+
+  ['mousemove', 'mousedown', 'touchstart', 'focusin'].forEach(function (eventName) {
+    document.addEventListener(eventName, noteReaderActivity);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    noteReaderActivity();
+
+    if (e.key === 'Escape' && !els.helpOverlay.hidden) {
+      e.preventDefault();
+      closeHelpOverlay();
+      return;
+    }
+    if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+      e.preventDefault();
+      if (els.helpOverlay.hidden) {
+        openHelpOverlay();
+      } else {
+        closeHelpOverlay();
+      }
+      return;
+    }
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      commitOpenInlineEditors();
+      togglePlayback();
+      return;
+    }
+
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+      e.preventDefault();
+      setActiveLine(state.activeLineIndex - 1, true, { force: true, durationMs: 220 });
+      return;
+    }
+    if (e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+      e.preventDefault();
+      setActiveLine(state.activeLineIndex + 1, true, { force: true, durationMs: 220 });
+      return;
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      setActiveLine(0, true, { force: true, durationMs: 260 });
+      return;
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      setActiveLine(state.lines.length - 1, true, { force: true, durationMs: 260 });
+      return;
+    }
+    if (e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
+      toggleTheme();
+      return;
+    }
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      toggleFocusMode();
+      return;
+    }
+    if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      loadPayload({ preserveLine: true });
+      return;
+    }
+    if (e.key === '[') {
+      e.preventDefault();
+      setSpeed(Math.round((state.speed - 0.05) * 100) / 100);
+      return;
+    }
+    if (e.key === ']') {
+      e.preventDefault();
+      setSpeed(Math.round((state.speed + 0.05) * 100) / 100);
+    }
+  });
+
+  window.addEventListener('resize', function () {
+    recalculateRenderedLineWeights();
+    updateProgress();
+    const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
+    if (lineEl) keepLineInView(lineEl, { force: true, durationMs: 0 });
+  });
+
+  window.addEventListener('beforeunload', function () {
+    stopPlayback();
+    cancelScrollAnimation();
+    clearChromeIdleTimer();
+    if (state.pollTimer) clearInterval(state.pollTimer);
+  });
+}

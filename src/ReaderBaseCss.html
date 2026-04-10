@@ -1,0 +1,31 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+}
+
+body.theme-light {
+  background: #f5f7fb;
+  color: #1f2937;
+}
+
+body.theme-dark {
+  background: #111827;
+  color: #f9fafb;
+}
+
+button,
+select {
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 10px;
+}

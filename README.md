@@ -1,6 +1,6 @@
 # DocPrompter
 
-DocPrompter is a Google Docs add-on plus separate Apps Script web app that turns the current Google Doc, or the current selection, into a presenter-friendly reading window for Zoom, Google Meet, Teams, and similar video calls.
+DocPrompter is a Google Docs add-on plus separate Apps Script web app that turns the current Google Doc into a presenter-friendly reading window for Zoom, Google Meet, Teams, and similar video calls.
 
 This is not meant to be a hardware teleprompter clone. It is a reading aid for scripts and speaker copy that live in Google Docs.
 
@@ -18,18 +18,18 @@ Help a presenter read a script smoothly during a video call while keeping the so
 - A Google Docs-to-reading-window workflow optimized for presenting on calls
 
 ### Primary use case
-A user writes or rehearses a presentation script in Google Docs, launches DocPrompter, chooses either the current selection or the full document, and opens a separate reading window that is easy to position near the camera.
+A user writes or rehearses a presentation script in Google Docs, launches DocPrompter, and opens a separate reading window that is easy to position near the camera.
 
 ---
 
 ## MVP feature set
 
 ### Launcher behavior
-- Google Docs menu item: `DocPrompter -> Open Reading View`
-- Small launch dialog for source choice
-- `Selection` is the default when a selection exists
-- Falls back to `Entire document` when there is no selection
+- Google Docs menu item: `Extensions -> DocPrompter -> Open Reader`
+- Whole-document launch only
+- No source chooser and no selection mode
 - Opens a separate browser tab or window
+- Docs add-on homepage also offers a direct `Open Reader` action
 
 ### Reading window behavior
 - Separate web view only
@@ -90,6 +90,7 @@ Do not:
 ## Non-goals
 
 Not included in MVP:
+- alternate launch scopes beyond the active document
 - editing from the reading view
 - true mirror mode for reflective teleprompters
 - always-on-top window control
@@ -104,7 +105,6 @@ Not included in MVP:
 
 ### Core
 - As a presenter, I want to launch a reading view directly from the Google Doc I am working on.
-- As a presenter, I want the current selection to be the default source when I have highlighted text.
 - As a presenter, I want a separate reading window I can position near my camera during a video call.
 - As a presenter, I want automatic scrolling so I can read naturally.
 - As a presenter, I want keyboard shortcuts to pause and move line by line.
@@ -122,51 +122,48 @@ Not included in MVP:
 ## Technical design
 
 ### Architecture
-DocPrompter is split into two parts:
+DocPrompter is split into three runtime layers:
 
 1. **Google Docs add-on layer**
-   - Adds the menu item
-   - Shows the launch UI
-   - Detects active selection
-   - Generates the launch context
-   - Caches selection payloads for handoff
+   - adds the menu item
+   - exposes the Docs add-on homepage
+   - launches the detached reader for the active doc
 
-2. **Reading web app**
-   - Opens as a separate Apps Script web app page
-   - Receives explicit `docId`, `sourceMode`, and optional `selectionToken`
-   - Loads normalized content
-   - Renders the reader UI
-   - Manages scrolling, highlighting, progress, navigation, and refresh
+2. **Launch bridge**
+   - a small Apps Script HTML surface used only for menu-triggered launch
+   - opens the detached reader tab/window and closes itself
+   - exists because Docs menu callbacks cannot directly open browser tabs by themselves
+
+3. **Reading web app**
+   - opens as a separate Apps Script web app page
+   - receives explicit `docId`
+   - loads normalized content
+   - renders the reader UI
+   - manages scrolling, highlighting, progress, navigation, refresh, and diagnostics
 
 ### Why the split exists
 Google Docs add-ons are good for discovery and launch, but the actual reader experience is much better in a separate web view. The add-on stays thin; the reader gets the product attention.
 
----
+### Key design decisions
 
-## Key design decisions
-
-### 1. Separate web view instead of sidebar
+#### 1. Separate web view instead of sidebar
 Reason:
 - Better for video-call use
 - Better screen positioning near the camera
 - Fewer Google Docs UI constraints
 
-### 2. Explicit `docId` instead of `getActiveDocument()` in the reader
+#### 2. Explicit `docId` instead of `getActiveDocument()` in the reader
 Reason:
 - The reader is a standalone web app, not always tied to the active editor execution context
 - Passing `docId` makes document loading reliable via `DocumentApp.openById(docId)`
 
-### 3. Cached selection handoff
+#### 3. Whole-document-only launch
 Reason:
-- Selection state is tricky to reconstruct once the reader is detached from the editor session
-- The launch dialog serializes the current selection into a normalized payload and stores it in user cache
-- The reader receives a `selectionToken` and uses the cached payload if available
+- Reduces launch complexity and deployment/runtime brittleness
+- Removes chooser UI, selection cache lifecycle, and detached selection-state ambiguity
+- Keeps the product aligned with the most reliable reading and refresh path
 
-Tradeoff:
-- Selection snapshots are not fully live after launch
-- Full-document mode remains the more robust path for refresh-heavy workflows
-
-### 4. Normalized content model instead of raw Docs HTML
+#### 4. Normalized content model instead of raw Docs HTML
 Reason:
 - Easier to render consistently
 - Easier to highlight the current line
@@ -174,18 +171,18 @@ Reason:
 - Easier to jump by heading
 - Easier to convert tables into spoken-readable text
 
-### 5. Spoken readability over visual fidelity
+#### 5. Spoken readability over visual fidelity
 Reason:
 - The product goal is not to reproduce the doc layout exactly
 - The goal is to help a human read the content aloud smoothly
 
-### 6. Manual refresh plus lightweight polling
+#### 6. Manual refresh plus lightweight polling
 Reason:
 - The desired sync fidelity is medium, not real-time collaborative editing
 - Manual refresh is reliable
 - Polling every few seconds is simple enough for MVP
 
-### 7. Line-based interaction model
+#### 7. Line-based interaction model
 Reason:
 - Current-line highlighting depends on stable line units
 - Keyboard stepping is simpler and more predictable line-by-line than paragraph-by-paragraph
@@ -205,7 +202,6 @@ Example conceptual payload:
 ```json
 {
   "title": "Quarterly Demo Script",
-  "sourceMode": "document",
   "version": "abc123",
   "sections": [
     {
@@ -231,26 +227,43 @@ Example conceptual payload:
 
 ## File overview
 
-### `Code.gs`
-Creates the editor add-on menu and opens the launch dialog.
+### Entry shells
+- `Code.gs`: public Docs add-on entrypoints
+- `ReaderServer.gs`: public reader/server entrypoints
+- `ReaderView.html`: reader page shell
+- `ReaderStyles.html`: reader styles shell
 
-### `Launch.html`
-Launch UI that checks for a selection, defaults source choice, and opens the reader with the correct query parameters.
+### Add-on modules
+- `AddonEntrypoints.gs`: `onOpen`, `onInstall`, and menu-triggered launch
+- `AddonMenu.gs`: editor add-on menu construction
+- `AddonHome.gs`: Docs add-on homepage card
+- `AddonActions.gs`: add-on homepage open-link action and menu launch bridge
+- `LaunchBridge.html`: small auto-launch page used by the Docs menu flow
 
-### `ReaderServer.gs`
-Server-side logic for:
-- launch context
-- reader preparation
-- explicit document loading by `docId`
-- selection caching
-- normalization
-- version token generation
+### Reader server modules
+- `ReaderConfig.gs`: server constants and scope values
+- `ReaderLaunch.gs`: reader URL resolution and whole-document launch payload
+- `ReaderDocument.gs`: `doGet`, payload fetch, version fetch, and document open
+- `ReaderDiagnostics.gs`: logging, runtime snapshots, auth snapshots, and sanitization
+- `ReaderNormalization.gs`: body parsing, paragraph/list/table processing, and display-line splitting
+- `ReaderIdentity.gs`: section IDs, line IDs, structural keys, and version token helpers
 
-### `ReaderView.html`
-Reader UI and all browser-side interaction logic.
+### Reader client includes
+- `ReaderMarkup.html`: page markup
+- `ReaderConfigScript.html`: client constants and bootstrap normalization
+- `ReaderDomScript.html`: state and DOM references
+- `ReaderUtilsScript.html`: formatting and numeric helpers
+- `ReaderPrefsScript.html`: local preference load/save and preference UI application
+- `ReaderUiScript.html`: status, help, alignment, theme, focus, and inline control editors
+- `ReaderTimingScript.html`: playback timing, scroll animation, and ETA math
+- `ReaderRenderScript.html`: payload rendering, active-line logic, and progress display
+- `ReaderDataScript.html`: payload fetch, polling, and diagnostics fetch
+- `ReaderEventsScript.html`: event binding and keyboard/mouse/input handling
+- `ReaderBootstrapScript.html`: startup sequence
+- `ReaderBaseCss.html`, `ReaderLayoutCss.html`, `ReaderLineCss.html`, `ReaderOverlayCss.html`, `ReaderControlsCss.html`, `ReaderResponsiveCss.html`: split reader style layers
 
-### `ReaderStyles.html`
-Reader styles include used by the reader template for current-line highlighting, dark mode, and focus mode.
+### Manifest
+- `appsscript.json`: Apps Script manifest and add-on/web-app configuration
 
 ---
 
@@ -258,16 +271,19 @@ Reader styles include used by the reader template for current-line highlighting,
 
 ### Reader URL requirement
 The standalone add-on and the detached reader are two deployment surfaces.
-DocPrompter now supports an explicit script property handoff:
+DocPrompter supports an explicit script property handoff:
 
 - `DOCPROMPTER_READER_WEB_APP_URL`
 
-That property should contain the deployed reader web app `/exec` URL.
+That property should contain the deployed reader web app `/exec` or `/dev` URL.
 If the property is not set, the launch flow falls back to `ScriptApp.getService().getUrl()`, so the manifest still includes:
 
 - `https://www.googleapis.com/auth/script.scriptapp`
 
 Without either a configured reader URL or a same-project web app deployment, the add-on cannot open the detached reader.
+
+### Menu launch note
+The Docs menu path is whole-document-only and uses a tiny HTML launch bridge internally. That bridge exists only because Apps Script menu callbacks cannot directly open a browser tab by themselves.
 
 ### Diagnostics scope
 The manifest also includes:
@@ -277,11 +293,8 @@ The manifest also includes:
 That scope is used only for detached-reader diagnostics so execution logs and the in-reader debug panel can report which account context the web app is actually running under.
 
 ### Current launch recommendation
-For the current standalone MVP, the **editor add-on menu under `Extensions -> DocPrompter`** is the primary launch path.
+For the current standalone MVP, the **editor add-on menu under `Extensions -> DocPrompter -> Open Reader`** is the primary launch path.
 The **Docs add-on homepage** is supported, but it should stay secondary until a real deployed runtime pass confirms the card-flow behavior across the intended surfaces.
-
-### Selection mode caveat
-Selection mode is handled as a launch-time snapshot using cache. That is intentional. It is reliable enough for MVP, but it is not a live evolving selection.
 
 ### Version token caveat
 The current version token is derived from document ID plus body-text characteristics. It is good enough for polling-based change detection, but it is not a formal document revision ID.
@@ -299,8 +312,7 @@ That is appropriate for owner-only development, but it must be widened intention
 
 The MVP is complete when:
 - a user can launch from Google Docs
-- a user can choose selection or full document
-- a separate reader opens
+- a separate reader opens for the active document
 - headings, paragraphs, lists, and table rows render readably
 - one current line is visually highlighted
 - keyboard shortcuts work
@@ -317,7 +329,6 @@ The MVP is complete when:
 ### Near-term improvements
 - Persist reading position / resume state per document
 - Add optional countdown timer based on custom speaking rate
-- Add click-to-set-active-line
 - Add a compact “camera-adjacent narrow mode” preset
 - Add section-level collapse for long docs
 
@@ -332,54 +343,52 @@ The MVP is complete when:
 ## Suggested deployment flow
 
 1. Create a new Google Apps Script project
-2. Add these files:
-   - `Code.gs`
-   - `ReaderServer.gs`
-   - `Launch.html`
-   - `ReaderView.html`
-   - `ReaderStyles.html`
-   - `appsscript.json`
+2. Add the full `src/` tree from this repo
 3. Create a **Web app** deployment for the reader
 4. Copy the deployed `/exec` URL into the script property `DOCPROMPTER_READER_WEB_APP_URL`
 5. Create or update the **Editor add-on** test deployment
-6. Open the test doc, refresh it if needed, and use `Extensions -> DocPrompter`
+6. Open the test doc, refresh it if needed, and use `Extensions -> DocPrompter -> Open Reader`
 
 ---
 
 ## Final product one-liner
 
-Turn the current Google Doc or selected text into a clean presenter reading window for video calls.
+Turn the current Google Doc into a clean presenter reading window for video calls.
 
 ## Runtime hardening pass
 
 This version reduces add-on runtime brittleness in a few important ways:
 
-- The add-on homepage now prefers **OpenLink** actions for “Open full document” and “Open current selection” instead of relying on opening a Docs modal dialog from a card action. That is generally more reliable across add-on surfaces.
-- The launch dialog is still available from the editor add-on menu inside Google Docs.
-- The separate reader now relies on an explicit **docId** and uses `DocumentApp.openById(docId)` instead of assuming an active editor context.
+- The add-on and reader code are split into focused Apps Script and HTML include modules instead of two monolithic files.
+- The product now uses one launch path only: whole-document reader launch with explicit `docId`.
+- The Docs menu no longer uses a chooser dialog and the add-on homepage no longer branches between document and selection actions.
+- The separate reader relies on explicit `docId` and uses `DocumentApp.openById(docId)` instead of assuming an active editor context.
 - The web app is configured to run as **USER_ACCESSING**, which is a safer fit for reading the current user’s document in the separate reader flow.
-- The standalone add-on now uses `createAddonMenu()` and `onInstall(e)` so the menu appears in the expected editor add-on surface.
-- The detached reader now supports an explicit `DOCPROMPTER_READER_WEB_APP_URL` script property so the add-on and reader deployments can be wired together intentionally.
-- Selection mode is intentionally a launch-time snapshot using a cached `selectionToken`. This avoids fragile assumptions about the current live selection once the separate reader window is open.
+- The standalone add-on uses `createAddonMenu()` and `onInstall(e)` so the menu appears in the expected editor add-on surface.
+- The detached reader supports an explicit `DOCPROMPTER_READER_WEB_APP_URL` script property so the add-on and reader deployments can be wired together intentionally.
 
 ### Practical recommendation
 
 Use the project in this order of preference:
 
-1. **Inside a Google Doc via `Extensions -> DocPrompter`** for the smoothest MVP workflow
-2. **Inside the Docs add-on card homepage** using “Open full document” or “Open current selection”
-3. Treat “Open launch dialog” from the card surface as a convenience fallback, not the primary path
+1. **Inside a Google Doc via `Extensions -> DocPrompter -> Open Reader`** for the smoothest MVP workflow
+2. **Inside the Docs add-on card homepage** using `Open Reader`
 
 ### Known limitations that remain
 
 - Browser behavior still decides whether the reader opens as a new window or a new tab.
 - The add-on cannot reliably force always-on-top or window transparency.
-- Selection mode is a snapshot, not a live changing range.
 - Polling-based refresh is intentionally moderate, not realtime.
 
 ---
 
 ## Changelog
+
+### v3.6.0 (2026-04-10)
+- Refactored the Apps Script repo into focused server modules, reader script includes, and reader CSS layers so the project is substantially easier to navigate and maintain.
+- Removed the source chooser, `Launch.html`, and all selection-snapshot plumbing so DocPrompter now launches the whole document only.
+- Simplified the reader web-app contract to explicit `docId` handoff only.
+- Replaced the menu chooser flow with a lightweight launch bridge so `Extensions -> DocPrompter -> Open Reader` opens the detached reader directly.
 
 ### v3.5.11 (2026-04-10)
 - Forced explicit left alignment on reader lines and moved centered mode onto the line elements themselves so left-aligned reading no longer inherits stale centering.

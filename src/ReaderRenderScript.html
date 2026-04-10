@@ -1,0 +1,197 @@
+function updateProgress() {
+  if (!state.lines.length) {
+    els.currentSectionText.textContent = 'Section --';
+    els.currentSectionText.title = 'Section --';
+    els.progressText.textContent = '0%';
+    els.progressBar.value = 0;
+    els.etaText.textContent = 'ETA --';
+    els.timingText.textContent = 'Elapsed -- / Total --';
+    return;
+  }
+
+  const totalDurationMs = getTotalDurationMs();
+  const elapsedDurationMs = getElapsedDurationMs();
+  const pct = totalDurationMs
+    ? Math.round((elapsedDurationMs / Math.max(1, totalDurationMs)) * 100)
+    : 0;
+  els.progressText.textContent = clamp(pct, 0, 100) + '%';
+  els.progressBar.value = clamp(pct, 0, 100);
+  els.etaText.textContent = formatEtaSeconds(getRemainingDurationMs() / 1000);
+  els.timingText.textContent = `Elapsed ${formatClockDuration(elapsedDurationMs / 1000)} / Total ${formatClockDuration(totalDurationMs / 1000)}`;
+}
+
+function getCurrentSectionLabel() {
+  if (!state.lines.length) return 'Section --';
+
+  const headings = state.sections.filter(function (section) {
+    return section.type === 'heading' && typeof section.firstLineIndex === 'number';
+  });
+
+  let currentHeading = null;
+  headings.forEach(function (section) {
+    if (section.firstLineIndex <= state.activeLineIndex) {
+      currentHeading = section;
+    }
+  });
+
+  if (currentHeading && currentHeading.text) {
+    return currentHeading.text;
+  }
+
+  const currentLine = state.lines[state.activeLineIndex];
+  if (!currentLine || !currentLine.sectionId) {
+    return state.payload && state.payload.title ? state.payload.title : 'Document start';
+  }
+
+  const section = state.sections.find(function (candidate) {
+    return candidate.id === currentLine.sectionId;
+  });
+
+  if (section && section.text) {
+    return String(section.text).split('\n')[0];
+  }
+
+  return state.payload && state.payload.title ? state.payload.title : 'Document start';
+}
+
+function updateCurrentSectionContext() {
+  const label = getCurrentSectionLabel();
+  els.currentSectionText.textContent = label;
+  els.currentSectionText.title = label;
+}
+
+function keepLineInView(lineEl, options) {
+  if (!lineEl) return;
+
+  const viewport = els.readerViewport;
+  const viewportHeight = viewport.clientHeight;
+  const viewportPadding = 24;
+  const lineTop = lineEl.offsetTop;
+  const lineHeight = lineEl.offsetHeight;
+  const lineTopInViewport = lineTop - viewport.scrollTop;
+  const lineBottomInViewport = lineTopInViewport + lineHeight;
+  const canFullyFit = lineHeight <= viewportHeight - (viewportPadding * 2);
+  const desiredTop = canFullyFit
+    ? clamp(viewportHeight * 0.38, viewportPadding, viewportHeight - viewportPadding - lineHeight)
+    : viewportPadding;
+  const targetTop = lineTop - desiredTop;
+  const shouldAdjust = (options && options.force)
+    || lineTopInViewport < viewportPadding
+    || lineBottomInViewport > viewportHeight - viewportPadding;
+
+  if (!shouldAdjust) return;
+  animateViewportScrollTo(targetTop, options && options.durationMs ? options.durationMs : 260);
+}
+
+function setActiveLine(index, keepVisible, options) {
+  if (!state.lines.length) return;
+
+  index = Math.max(0, Math.min(index, state.lines.length - 1));
+  state.activeLineIndex = index;
+
+  const prev = els.readerContent.querySelector('.line.active');
+  if (prev) prev.classList.remove('active');
+
+  const lineEl = els.readerContent.querySelector(`.line[data-line-index="${index}"]`);
+  if (lineEl) {
+    lineEl.classList.add('active');
+    if (keepVisible) keepLineInView(lineEl, options || {});
+  }
+
+  updateCurrentSectionContext();
+  updateProgress();
+}
+
+function buildSectionJump(sections) {
+  els.sectionJump.innerHTML = '<option value="">Jump to section...</option>';
+
+  sections.forEach(function (section) {
+    if (section.type !== 'heading') return;
+
+    const opt = document.createElement('option');
+    opt.value = String(section.firstLineIndex);
+    const levelPrefix = section.levelNumber ? 'H' + section.levelNumber + ': ' : '';
+    opt.textContent = levelPrefix + section.text;
+    els.sectionJump.appendChild(opt);
+  });
+}
+
+function getCurrentRestoreMarker() {
+  const current = state.lines[state.activeLineIndex];
+  return current ? {
+    lineId: current.id || '',
+    lineText: current.text || ''
+  } : { lineId: '', lineText: '' };
+}
+
+function findBestRestoreIndex(marker) {
+  if (!state.lines.length) return 0;
+
+  if (marker && marker.lineId) {
+    const idIndex = state.lines.findIndex(function (line) {
+      return line.id === marker.lineId;
+    });
+    if (idIndex >= 0) return idIndex;
+  }
+
+  if (marker && marker.lineText) {
+    const exactMatches = state.lines
+      .map(function (line, index) {
+        return { line: line, index: index };
+      })
+      .filter(function (entry) {
+        return entry.line.text === marker.lineText;
+      });
+
+    if (exactMatches.length === 1) return exactMatches[0].index;
+    if (exactMatches.length > 1) {
+      const nearest = exactMatches.reduce(function (best, entry) {
+        return Math.abs(entry.index - state.activeLineIndex) < Math.abs(best.index - state.activeLineIndex)
+          ? entry
+          : best;
+      });
+      return nearest.index;
+    }
+  }
+
+  return Math.min(state.activeLineIndex, Math.max(0, state.lines.length - 1));
+}
+
+function renderPayload(payload, restoreMarker) {
+  state.payload = payload;
+  state.lines = payload.lines || [];
+  state.sections = payload.sections || [];
+  state.lineReadWeights = state.lines.map(estimateBaseLineDurationMs);
+  state.lastLoadedVersion = payload.version || '';
+
+  els.docTitle.textContent = payload.title || 'Untitled document';
+  els.docMeta.textContent = `${state.lines.length} lines`;
+
+  buildSectionJump(state.sections);
+
+  const html = state.lines.map(function (line, idx) {
+    const classes = ['line', `line-${line.kind || 'paragraph'}`];
+    const prevLine = idx > 0 ? state.lines[idx - 1] : null;
+    const isSectionStart = !prevLine || prevLine.sectionId !== line.sectionId;
+    classes.push(isSectionStart ? 'line-section-start' : 'line-continued');
+    if (line.isCue) classes.push('line-cue');
+    if (line.sourceBreakBefore) classes.push('line-source-break');
+    return `
+      <div
+        class="${classes.join(' ')}"
+        data-line-index="${idx}"
+        data-section-id="${escapeHtml(line.sectionId || '')}">
+        ${escapeHtml(line.text || '')}
+      </div>
+    `;
+  }).join('');
+
+  els.readerContent.innerHTML = html;
+  els.readerContent.style.fontSize = state.fontSize + 'px';
+  recalculateRenderedLineWeights();
+
+  const newIndex = findBestRestoreIndex(restoreMarker || {});
+  stopPlayback();
+  setActiveLine(newIndex, true, { force: true, durationMs: 0 });
+  updateProgress();
+}

@@ -1,0 +1,40 @@
+const STORAGE_KEY = 'docprompter.reader.preferences.v1';
+const SPEED_MIN = 0.6;
+const SPEED_MAX = 2.4;
+const SPEED_DEFAULT = 1.0;
+const FONT_SIZE_MIN = 40;
+const FONT_SIZE_MAX = 80;
+const FONT_SIZE_DEFAULT = 48;
+const BASE_READING_WORDS_PER_MINUTE = 215;
+const LINE_ALIGNMENT_LEFT = 'left';
+const LINE_ALIGNMENT_CENTER = 'center';
+const HELP_STORAGE_KEY = 'docprompter.reader.help.v1';
+const CHROME_IDLE_DELAY_MS = 1800;
+
+function normalizeBootstrapString(value) {
+  if (value === null || value === undefined) return '';
+
+  let normalized = String(value).trim();
+  let previous = null;
+
+  while (normalized && normalized !== previous) {
+    previous = normalized;
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (typeof parsed === 'string') {
+        normalized = parsed.trim();
+        continue;
+      }
+    } catch (err) {}
+
+    if (
+      (normalized.startsWith('"') && normalized.endsWith('"')) ||
+      (normalized.startsWith("'") && normalized.endsWith("'"))
+    ) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+  }
+
+  return normalized;
+}

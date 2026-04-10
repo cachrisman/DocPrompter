@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8" />
+    <title>Opening DocPrompter</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 12px;
+        color: #1f2937;
+      }
+
+      .status {
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .manual-open {
+        margin-top: 10px;
+      }
+
+      .manual-open[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status" id="status">Opening reader...</div>
+    <div class="manual-open" id="manualOpen" hidden>
+      <a id="manualLink" href="#" target="_blank" rel="noopener">Open Reader</a>
+    </div>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const manualOpenEl = document.getElementById('manualOpen');
+      const manualLinkEl = document.getElementById('manualLink');
+
+      function setStatus(message) {
+        statusEl.textContent = message || '';
+      }
+
+      function showManualOpen(message, openUrl) {
+        setStatus(message);
+        if (openUrl) {
+          manualLinkEl.href = openUrl;
+          manualOpenEl.hidden = false;
+        }
+      }
+
+      google.script.run
+        .withSuccessHandler(function (launch) {
+          const openUrl = launch && launch.openUrl
+            ? launch.openUrl
+            : ((launch && launch.url ? launch.url : '') + '?docId=' + encodeURIComponent(launch && launch.docId ? launch.docId : ''));
+          const readerWindow = window.open(openUrl, '_blank');
+
+          if (!readerWindow) {
+            showManualOpen('Popup blocked. Allow popups for this Docs / Apps Script flow, or use the manual link below.', openUrl);
+            return;
+          }
+
+          if (typeof readerWindow.focus === 'function') {
+            readerWindow.focus();
+          }
+
+          setStatus('Reader opened.');
+          if (google.script && google.script.host && google.script.host.close) {
+            google.script.host.close();
+          }
+        })
+        .withFailureHandler(function (err) {
+          showManualOpen(
+            'Error: ' + (err && err.message ? err.message : err),
+            ''
+          );
+        })
+        .prepareReaderLaunch();
+    </script>
+  </body>
+</html>

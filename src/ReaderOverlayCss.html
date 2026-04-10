@@ -1,0 +1,116 @@
+.debug-panel {
+  margin-top: 18px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+}
+
+.debug-panel summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.debug-panel pre {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+body.theme-light .debug-panel {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+body.theme-dark .debug-panel {
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.help-overlay[hidden] {
+  display: none;
+}
+
+.help-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.help-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border-radius: 18px;
+  padding: 22px 22px 20px;
+  box-sizing: border-box;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  pointer-events: auto;
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.help-header h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.help-header p {
+  margin: 0;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.help-card {
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.help-card h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.help-card ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.55;
+}
+
+body.theme-light .help-dialog,
+body.theme-light .help-card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+body.theme-dark .help-dialog,
+body.theme-dark .help-card {
+  background: rgba(17, 24, 39, 0.97);
+}

@@ -1,0 +1,116 @@
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="doc-title" id="docTitle">Loading...</div>
+      <div class="doc-meta" id="docMeta"></div>
+    </div>
+
+    <div class="topbar-right">
+      <button id="helpBtn" title="Show shortcuts and controls">?</button>
+      <button id="refreshBtn" title="Refresh from Google Doc">Refresh</button>
+      <button id="themeBtn" title="Toggle dark mode">Dark mode</button>
+      <button id="focusBtn" title="Toggle focus mode">Focus mode</button>
+      <select id="sectionJump" title="Jump to section">
+        <option value="">Jump to section...</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="reader-shell">
+    <div class="reader-viewport" id="readerViewport">
+      <div class="reader-content" id="readerContent"></div>
+      <details class="debug-panel" id="debugPanel" hidden>
+        <summary>Debug details</summary>
+        <pre id="debugDetails"></pre>
+      </details>
+    </div>
+  </main>
+
+  <div class="help-overlay" id="helpOverlay" hidden>
+    <div class="help-backdrop" id="helpBackdrop" data-close-help></div>
+    <div class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="help-header">
+        <div>
+          <h2 id="helpTitle">Reader Controls</h2>
+          <p>Everything important is keyboard-first. Click a line to move the reader there, or double-click a line to start playback from it.</p>
+        </div>
+        <button id="helpCloseBtn" type="button" title="Close help" data-close-help>Close</button>
+      </div>
+
+      <div class="help-grid">
+        <section class="help-card">
+          <h3>Navigation</h3>
+          <ul>
+            <li><strong>Click</strong> a line to make it active</li>
+            <li><strong>Double-click</strong> a line to start playback there</li>
+            <li><strong>Start / End</strong> jump to the beginning or end</li>
+            <li><strong>Jump to section</strong> uses document headings</li>
+          </ul>
+        </section>
+
+        <section class="help-card">
+          <h3>Playback</h3>
+          <ul>
+            <li><strong>Space</strong> play or pause</li>
+            <li><strong>Arrow keys</strong> move one line at a time</li>
+            <li><strong>[</strong> and <strong>]</strong> slow down or speed up</li>
+            <li><strong>R</strong> refreshes from the source doc</li>
+          </ul>
+        </section>
+
+        <section class="help-card">
+          <h3>Display</h3>
+          <ul>
+            <li><strong>Alignment</strong> toggles centered vs left-aligned reading</li>
+            <li><strong>D</strong> toggles dark mode</li>
+            <li><strong>F</strong> toggles focus mode</li>
+            <li><strong>?</strong> reopens this help panel</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer class="controls" id="controlsBar">
+    <div class="controls-left">
+      <label class="slider-control">
+        <span class="control-label">Speed</span>
+        <input id="speedInput" type="range" min="0.6" max="2.4" step="0.05" value="1">
+        <button id="speedValueBtn" type="button" class="control-value-button" title="Edit speed">
+          <span class="control-value" id="speedValue">1</span>
+        </button>
+        <input id="speedValueInput" class="control-value-input" type="number" min="0.6" max="2.4" step="0.05" value="1" hidden>
+      </label>
+
+      <label class="slider-control">
+        <span class="control-label">Font</span>
+        <input id="fontSizeInput" type="range" min="40" max="80" step="1" value="48">
+        <button id="fontSizeValueBtn" type="button" class="control-value-button" title="Edit font size">
+          <span class="control-value" id="fontSizeValue">48</span>
+        </button>
+        <input id="fontSizeValueInput" class="control-value-input" type="number" min="40" max="80" step="1" value="48" hidden>
+      </label>
+
+      <button id="alignBtn" title="Toggle line alignment">Alignment: Left</button>
+    </div>
+
+    <div class="controls-center">
+      <button id="lineStartBtn" title="Jump to beginning">Start</button>
+      <button id="lineBackBtn" title="Back one line">Back</button>
+      <button id="playPauseBtn">Play</button>
+      <button id="lineForwardBtn" title="Forward one line">Forward</button>
+      <button id="lineEndBtn" title="Jump to end">End</button>
+    </div>
+
+    <div class="controls-right">
+      <div class="progress-wrap">
+        <div class="section-text" id="currentSectionText">Section --</div>
+        <div class="progress-text" id="progressText">0%</div>
+        <div class="eta-text" id="etaText">ETA --</div>
+        <div class="timing-text" id="timingText">Elapsed -- / Total --</div>
+        <div class="status-text" id="statusText">Loading...</div>
+        <progress id="progressBar" max="100" value="0"></progress>
+      </div>
+    </div>
+  </footer>
+</div>

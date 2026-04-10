@@ -20,13 +20,7 @@
 
 ## Deployment checklist
 
-1. Create the Apps Script project and add:
-   - `Code.gs`
-   - `ReaderServer.gs`
-   - `Launch.html`
-   - `ReaderView.html`
-   - `ReaderStyles.html`
-   - `appsscript.json`
+1. Create the Apps Script project and add the full `src/` tree from this repo.
 
 2. Confirm the manifest includes:
    - Docs scope
@@ -48,20 +42,14 @@
 5. Create or update the editor add-on deployment and install the test deployment for your account if needed.
 
 6. Test in this order:
-   - `Extensions -> DocPrompter` menu flow first
+   - `Extensions -> DocPrompter -> Open Reader` menu flow first
    - Workspace Add-on homepage/card flow second
 
 7. Verify the reader launch passes:
    - `docId`
-   - `sourceMode`
-   - `selectionToken` when relevant
+   - the configured reader web app URL
 
-8. Verify selection snapshot cache behavior:
-   - selection token is created
-   - token is readable by the reader
-   - expired token falls back gracefully to full document
-
-9. Test browser behavior:
+8. Test browser behavior:
    - popup blockers
    - new tab vs new window behavior
    - keyboard shortcuts in the standalone reader
@@ -69,10 +57,10 @@
 ## QA test plan
 
 ### Basic launch
-- Full document launch works.
-- Selection launch works.
-- No-selection launch falls back to full document.
-- Popup blocker shows an explicit warning and the launch dialog stays open instead of reporting false success.
+- Menu launch opens the detached reader for the current document.
+- Homepage/card launch opens the same detached reader path.
+- No chooser UI appears anywhere.
+- Popup blocker shows an explicit warning in the launch bridge instead of failing silently.
 
 ### Reader behavior
 - Current line indicator updates clearly.
@@ -85,12 +73,11 @@
 - Headings render distinctly and appear in section jump.
 - Lists remain readable, including nested items.
 - Tables are converted into row-grouped readable text.
-- Repeated identical lines are not dropped from selection snapshots.
+- Repeated identical lines remain present when normalization produces them.
 
 ### Refresh and sync
-- Manual refresh works in full-document mode.
-- Polling detects changes in full-document mode.
-- Selection snapshots stay intentionally static after launch.
+- Manual refresh works.
+- Polling detects changes.
 - Refresh preserves approximate reading position.
 
 ### Add-on/runtime
@@ -103,17 +90,16 @@
 ## Known issues
 
 - Multi-row tables currently assume row 0 is a header row. Headerless data tables will be flattened less accurately until explicit header detection is added.
-- ETA is an approximation based on a fixed baseline seconds-per-display-line model.
-- Selection mode is a launch-time snapshot, not a live evolving slice of the doc.
-- Partial-text selections that span multiple styled text runs can still normalize less cleanly than plain paragraph selections because Google Docs exposes them as fragmented range elements.
+- ETA is still heuristic and depends on the current pacing model plus rendered wrap depth.
 - The committed manifest uses `webapp.access = MYSELF`, which is right for owner-only development but will block broader testing until access is widened intentionally.
+- The Docs menu flow still uses a tiny launch bridge under the hood because Apps Script menu callbacks cannot directly open browser tabs.
 
 ## Backlog / future improvements
 
 ### High priority
 - Run and document a real deployed runtime test.
 - Improve position restore further for heavily edited documents.
-- Add clearer inline error states for permission, popup, and expired snapshot failures.
+- Add clearer inline error states for permission and popup failures.
 
 ### Medium priority
 - Add better client-side line measurement instead of char-count wrapping.

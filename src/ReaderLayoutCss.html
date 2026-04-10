@@ -1,0 +1,68 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.topbar-left {
+  min-width: 0;
+}
+
+.doc-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.doc-meta {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.topbar button,
+.topbar select,
+.controls button,
+.controls input {
+  font: inherit;
+}
+
+.reader-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: 20px 24px 12px;
+}
+
+.reader-viewport {
+  width: min(1100px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 20px 160px;
+  box-sizing: border-box;
+}
+
+.reader-content {
+  max-width: min(31ch, 100%);
+  margin: 0 auto;
+  line-height: 1.36;
+  text-align: left;
+}

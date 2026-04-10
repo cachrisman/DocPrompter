@@ -1,0 +1,77 @@
+function loadPayload(options) {
+  const preserveLine = options && options.preserveLine;
+  const restoreMarker = preserveLine ? getCurrentRestoreMarker() : null;
+  const wasPlaying = state.isPlaying;
+
+  stopPlayback();
+  setStatus('Refreshing...');
+
+  google.script.run
+    .withSuccessHandler(function (payload) {
+      renderPayload(payload, restoreMarker);
+      restartPollingIfNeeded();
+      setStatus('Up to date');
+      maybeShowHelpOverlay();
+      logClientEvent('reader_payload_loaded', {
+        docId: state.docId,
+        lineCount: (payload.lines || []).length
+      });
+      if (wasPlaying && state.lines.length > 1) {
+        startPlayback();
+      }
+    })
+    .withFailureHandler(function (err) {
+      setStatus('Refresh failed');
+      els.docMeta.textContent = err && err.message ? err.message : String(err);
+      logClientEvent('reader_payload_error', {
+        docId: state.docId,
+        error: err && err.message ? err.message : String(err)
+      });
+      google.script.run
+        .withSuccessHandler(function (diagnostics) {
+          renderDebugDetails({
+            error: err && err.message ? err.message : String(err),
+            client: collectClientDiagnostics(),
+            server: diagnostics
+          });
+        })
+        .withFailureHandler(function (diagErr) {
+          renderDebugDetails({
+            error: err && err.message ? err.message : String(err),
+            diagnosticsError: diagErr && diagErr.message ? diagErr.message : String(diagErr),
+            client: collectClientDiagnostics()
+          });
+        })
+        .getReaderRuntimeDiagnostics(state.docId);
+    })
+    .getDocumentPayloadById(state.docId);
+}
+
+function maybePollForChanges() {
+  if (!state.docId) return;
+
+  google.script.run
+    .withSuccessHandler(function (versionInfo) {
+      if (!versionInfo || !versionInfo.version) return;
+      if (state.lastLoadedVersion && versionInfo.version !== state.lastLoadedVersion) {
+        loadPayload({ preserveLine: true });
+      }
+    })
+    .withFailureHandler(function () {
+      /* keep polling quiet for MVP */
+    })
+    .getDocumentVersionById(state.docId);
+}
+
+function startPolling() {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(maybePollForChanges, 8000);
+}
+
+function restartPollingIfNeeded() {
+  if (state.pollTimer) {
+    clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+  startPolling();
+}

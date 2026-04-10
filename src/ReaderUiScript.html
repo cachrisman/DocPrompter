@@ -1,0 +1,184 @@
+function setStatus(message) {
+  els.statusText.textContent = message || '';
+}
+
+function logClientEvent(eventName, payload) {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+  google.script.run
+    .withFailureHandler(function () {
+      /* keep diagnostics best-effort */
+    })
+    .logClientEvent(eventName, payload || {});
+}
+
+function renderDebugDetails(details) {
+  if (!details) return;
+  els.debugPanel.hidden = false;
+  els.debugPanel.open = true;
+  els.debugDetails.textContent = JSON.stringify(details, null, 2);
+}
+
+function collectClientDiagnostics() {
+  return {
+    href: window.location.href,
+    referrer: document.referrer || '',
+    userAgent: navigator.userAgent,
+    bootstrap: window.DOC_PROMPTER_BOOTSTRAP
+  };
+}
+
+function getValueEditor(kind) {
+  if (kind === 'speed') {
+    return {
+      button: els.speedValueBtn,
+      display: els.speedValue,
+      input: els.speedValueInput
+    };
+  }
+
+  return {
+    button: els.fontSizeValueBtn,
+    display: els.fontSizeValue,
+    input: els.fontSizeValueInput
+  };
+}
+
+function setSpeed(value, options) {
+  state.speed = clamp(parseFiniteNumber(value, state.speed), SPEED_MIN, SPEED_MAX);
+  syncSpeedUi();
+  updateProgress();
+
+  if (!options || !options.skipPersist) {
+    savePreferences();
+  }
+  if (state.isPlaying && (!options || !options.skipRestart)) {
+    startPlayback();
+  }
+}
+
+function setFontSize(value, options) {
+  state.fontSize = clamp(
+    Math.round(parseFiniteNumber(value, state.fontSize)),
+    FONT_SIZE_MIN,
+    FONT_SIZE_MAX
+  );
+  syncFontSizeUi();
+  els.readerContent.style.fontSize = state.fontSize + 'px';
+  recalculateRenderedLineWeights();
+  updateProgress();
+
+  if (options && options.keepActiveLineVisible) {
+    const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
+    if (lineEl) keepLineInView(lineEl, { force: true, durationMs: options.durationMs || 220 });
+  }
+
+  if (!options || !options.skipPersist) {
+    savePreferences();
+  }
+}
+
+function openInlineValueEditor(kind) {
+  const editor = getValueEditor(kind);
+  editor.button.hidden = true;
+  editor.input.hidden = false;
+  editor.input.value = kind === 'speed'
+    ? state.speed.toFixed(2)
+    : String(state.fontSize);
+  editor.input.focus();
+  editor.input.select();
+}
+
+function commitInlineValueEditor(kind) {
+  if (kind === 'speed') {
+    setSpeed(els.speedValueInput.value);
+  } else {
+    setFontSize(els.fontSizeValueInput.value, {
+      keepActiveLineVisible: true,
+      durationMs: 220
+    });
+  }
+
+  applyPreferenceUi();
+}
+
+function closeInlineValueEditor(kind, commit) {
+  const editor = getValueEditor(kind);
+  if (commit) {
+    commitInlineValueEditor(kind);
+  } else {
+    editor.input.value = kind === 'speed'
+      ? state.speed.toFixed(2)
+      : String(state.fontSize);
+  }
+
+  editor.input.hidden = true;
+  editor.button.hidden = false;
+}
+
+function commitOpenInlineEditors() {
+  ['speed', 'font'].forEach(function (kind) {
+    const editor = getValueEditor(kind);
+    if (!editor.input.hidden) {
+      closeInlineValueEditor(kind, true);
+    }
+  });
+}
+
+function clearChromeIdleTimer() {
+  if (state.chromeIdleTimer) {
+    clearTimeout(state.chromeIdleTimer);
+    state.chromeIdleTimer = null;
+  }
+}
+
+function setChromeIdle(isIdle) {
+  document.body.classList.toggle('chrome-idle', !!isIdle && state.focusMode && els.helpOverlay.hidden);
+}
+
+function noteReaderActivity() {
+  setChromeIdle(false);
+  clearChromeIdleTimer();
+
+  if (!state.focusMode || !els.helpOverlay.hidden) return;
+
+  state.chromeIdleTimer = setTimeout(function () {
+    setChromeIdle(true);
+  }, CHROME_IDLE_DELAY_MS);
+}
+
+function openHelpOverlay(options) {
+  els.helpOverlay.hidden = false;
+  document.body.classList.add('help-open');
+  markHelpOverlaySeen();
+  setChromeIdle(false);
+  clearChromeIdleTimer();
+  if (!options || !options.skipFocus) {
+    els.helpCloseBtn.focus();
+  }
+}
+
+function closeHelpOverlay() {
+  els.helpOverlay.hidden = true;
+  document.body.classList.remove('help-open');
+  noteReaderActivity();
+}
+
+function maybeShowHelpOverlay() {
+  if (state.helpOverlayShownOnce) return;
+  state.helpOverlayShownOnce = true;
+  if (hasSeenHelpOverlay()) return;
+  openHelpOverlay();
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  applyThemeUi();
+  savePreferences();
+}
+
+function toggleFocusMode() {
+  state.focusMode = !state.focusMode;
+  applyFocusUi();
+  savePreferences();
+}

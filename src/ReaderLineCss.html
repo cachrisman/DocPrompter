@@ -1,0 +1,70 @@
+.line {
+  margin: 0;
+  padding: 0.08em 0.34em;
+  border-radius: 12px;
+  opacity: 0.58;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+  white-space: pre-wrap;
+  text-indent: 0;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  cursor: pointer;
+  text-align: left;
+}
+
+.line + .line {
+  margin-top: 0.06em;
+}
+
+.line-section-start {
+  margin-top: 0.5em;
+}
+
+.line-source-break {
+  margin-top: 0.42em;
+}
+
+.line-heading {
+  font-weight: 700;
+  margin-top: 0.8em;
+  opacity: 0.78;
+}
+
+.line-list {
+  padding-left: 0.28em;
+}
+
+.line-table {
+  margin-left: 0;
+  opacity: 0.68;
+}
+
+.line.active {
+  opacity: 1;
+}
+
+body.theme-light .line.active {
+  background: rgba(26, 115, 232, 0.12);
+  box-shadow:
+    inset 4px 0 0 #1a73e8,
+    0 0 0 1px rgba(26, 115, 232, 0.08);
+}
+
+body.theme-dark .line.active {
+  background: rgba(96, 165, 250, 0.18);
+  box-shadow:
+    inset 4px 0 0 #60a5fa,
+    0 0 0 1px rgba(96, 165, 250, 0.12);
+}
+
+body.line-align-center .reader-content {
+  text-align: left;
+}
+
+body.line-align-center .line {
+  text-align: center;
+}
