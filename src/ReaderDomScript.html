@@ -10,13 +10,19 @@ const state = {
   fontSize: FONT_SIZE_DEFAULT,
   theme: 'light',
   focusMode: false,
-  scrollTimer: null,
   scrollAnimationFrame: null,
+  playbackFrame: null,
+  playbackStartedAt: 0,
+  playbackElapsedMs: 0,
   chromeIdleTimer: null,
   lastLoadedVersion: '',
   pollTimer: null,
   lineAlignment: LINE_ALIGNMENT_LEFT,
   lineReadWeights: [],
+  playbackLineDurations: [],
+  playbackLineStartTimes: [],
+  playbackTotalDurationMs: 0,
+  lineAnchorScrollTops: [],
   helpOverlayShownOnce: false
 };
 

@@ -184,7 +184,9 @@ function bindReaderEvents_() {
 
   window.addEventListener('resize', function () {
     recalculateRenderedLineWeights();
+    recalculateLineAnchorScrollTops();
     updateProgress();
+    if (state.isPlaying) return;
     const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
     if (lineEl) keepLineInView(lineEl, { force: true, durationMs: 0 });
   });

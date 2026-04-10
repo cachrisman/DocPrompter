@@ -1,10 +1,14 @@
 <script>
+function cancelPlaybackFrame() {
+  if (state.playbackFrame) {
+    cancelAnimationFrame(state.playbackFrame);
+    state.playbackFrame = null;
+  }
+}
+
 function stopPlayback() {
   state.isPlaying = false;
-  if (state.scrollTimer) {
-    clearTimeout(state.scrollTimer);
-    state.scrollTimer = null;
-  }
+  cancelPlaybackFrame();
   cancelScrollAnimation();
   els.playPauseBtn.textContent = 'Play';
 }
@@ -78,19 +82,52 @@ function estimateBaseLineDurationMs(line) {
 }
 
 function getLineDurationMs(index) {
-  const base = state.lineReadWeights[index] || 900;
-  return clamp(Math.round(base / state.speed), 180, 1600);
+  return state.playbackLineDurations[index] || 0;
+}
+
+function recomputePlaybackTimeline() {
+  const previousPosition = state.playbackLineDurations.length
+    ? getPlaybackPositionForElapsed(state.playbackElapsedMs || getElapsedDurationForLineIndex(state.activeLineIndex))
+    : {
+        index: clamp(state.activeLineIndex, 0, Math.max(0, state.lines.length - 1)),
+        lineProgress: 0
+      };
+  const startTimes = [];
+  const durations = [];
+  let elapsed = 0;
+
+  state.lineReadWeights.forEach(function (base) {
+    startTimes.push(elapsed);
+    const duration = clamp(Math.round(base / state.speed), 180, 1600);
+    durations.push(duration);
+    elapsed += duration;
+  });
+
+  state.playbackLineStartTimes = startTimes;
+  state.playbackLineDurations = durations;
+  state.playbackTotalDurationMs = elapsed;
+  if (durations.length) {
+    const preservedIndex = clamp(previousPosition.index, 0, durations.length - 1);
+    const preservedStart = startTimes[preservedIndex] || 0;
+    const preservedDuration = durations[preservedIndex] || 0;
+    state.playbackElapsedMs = clamp(
+      preservedStart + (preservedDuration * previousPosition.lineProgress),
+      0,
+      elapsed
+    );
+  } else {
+    state.playbackElapsedMs = 0;
+  }
+}
+
+function getElapsedDurationForLineIndex(index) {
+  if (!state.playbackLineStartTimes.length) return 0;
+  const clampedIndex = clamp(index, 0, Math.max(0, state.playbackLineStartTimes.length - 1));
+  return state.playbackLineStartTimes[clampedIndex] || 0;
 }
 
 function getElapsedDurationMs() {
-  if (!state.lineReadWeights.length) return 0;
-
-  let elapsed = 0;
-  for (let i = 0; i < state.activeLineIndex; i++) {
-    elapsed += getLineDurationMs(i);
-  }
-
-  return elapsed;
+  return clamp(state.playbackElapsedMs || 0, 0, getTotalDurationMs());
 }
 
 function getRemainingDurationMs() {
@@ -98,9 +135,7 @@ function getRemainingDurationMs() {
 }
 
 function getTotalDurationMs() {
-  return state.lineReadWeights.reduce(function (sum, unused, index) {
-    return sum + getLineDurationMs(index);
-  }, 0);
+  return state.playbackTotalDurationMs || 0;
 }
 
 function recalculateRenderedLineWeights() {
@@ -121,43 +156,101 @@ function recalculateRenderedLineWeights() {
     const sourceBreakFactor = line.sourceBreakBefore ? 1.01 : 1;
     return Math.round(base * wrapFactor * sourceBreakFactor);
   });
+
+  recomputePlaybackTimeline();
 }
 
-function getPlaybackScrollDurationMs(delayMs) {
-  return clamp(Math.round(delayMs * 0.18), 90, 160);
+function getPlaybackPositionForElapsed(elapsedMs) {
+  if (!state.lines.length || !state.playbackLineDurations.length) {
+    return {
+      index: 0,
+      lineProgress: 0
+    };
+  }
+
+  const totalDuration = getTotalDurationMs();
+  const clampedElapsed = clamp(elapsedMs, 0, totalDuration);
+
+  for (let i = state.playbackLineDurations.length - 1; i >= 0; i--) {
+    const start = state.playbackLineStartTimes[i] || 0;
+    if (clampedElapsed >= start || i === 0) {
+      const duration = Math.max(1, state.playbackLineDurations[i] || 1);
+      const lineProgress = clamp((clampedElapsed - start) / duration, 0, 1);
+      return {
+        index: i,
+        lineProgress: lineProgress
+      };
+    }
+  }
+
+  return {
+    index: 0,
+    lineProgress: 0
+  };
 }
 
-function schedulePlaybackAdvance() {
+function getPlaybackScrollTopForPosition(position) {
+  if (!state.lineAnchorScrollTops.length) return 0;
+
+  const currentTarget = state.lineAnchorScrollTops[position.index] || 0;
+  const nextIndex = Math.min(position.index + 1, state.lineAnchorScrollTops.length - 1);
+  const nextTarget = state.lineAnchorScrollTops[nextIndex] || currentTarget;
+  return currentTarget + ((nextTarget - currentTarget) * position.lineProgress);
+}
+
+function playbackTick(timestamp) {
   if (!state.isPlaying) return;
 
-  if (state.activeLineIndex >= state.lines.length - 1) {
+  const totalDuration = getTotalDurationMs();
+  if (!totalDuration || !state.lines.length) {
     stopPlayback();
     return;
   }
 
-  const delayMs = getLineDurationMs(state.activeLineIndex);
-  state.scrollTimer = setTimeout(function () {
-    if (!state.isPlaying) return;
+  if (!state.playbackStartedAt) {
+    state.playbackStartedAt = timestamp - state.playbackElapsedMs;
+  }
 
-    if (state.activeLineIndex < state.lines.length - 1) {
-      setActiveLine(state.activeLineIndex + 1, true, {
-        force: true,
-        durationMs: getPlaybackScrollDurationMs(delayMs)
-      });
-      schedulePlaybackAdvance();
-    } else {
-      stopPlayback();
-    }
-  }, delayMs);
+  const elapsed = clamp(timestamp - state.playbackStartedAt, 0, totalDuration);
+  state.playbackElapsedMs = elapsed;
+
+  const position = getPlaybackPositionForElapsed(elapsed);
+  if (position.index !== state.activeLineIndex) {
+    setActiveLine(position.index, false, {
+      syncPlaybackElapsed: false,
+      skipProgress: true
+    });
+  } else {
+    updateCurrentSectionContext();
+  }
+
+  els.readerViewport.scrollTop = getPlaybackScrollTopForPosition(position);
+  updateProgress();
+
+  if (elapsed >= totalDuration) {
+    state.playbackElapsedMs = totalDuration;
+    stopPlayback();
+    return;
+  }
+
+  state.playbackFrame = requestAnimationFrame(playbackTick);
 }
 
 function startPlayback() {
   if (!state.lines.length) return;
 
+  if (state.activeLineIndex >= state.lines.length - 1 && state.playbackElapsedMs >= getTotalDurationMs()) {
+    setActiveLine(0, true, {
+      force: true,
+      durationMs: 0
+    });
+  }
+
   stopPlayback();
   state.isPlaying = true;
+  state.playbackStartedAt = 0;
   els.playPauseBtn.textContent = 'Pause';
-  schedulePlaybackAdvance();
+  state.playbackFrame = requestAnimationFrame(playbackTick);
 }
 
 function togglePlayback() {

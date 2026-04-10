@@ -61,6 +61,27 @@ function updateCurrentSectionContext() {
   els.currentSectionText.title = label;
 }
 
+function getLineAnchorTargetTop(lineEl) {
+  if (!lineEl) return 0;
+
+  const viewport = els.readerViewport;
+  const viewportHeight = viewport.clientHeight;
+  const viewportPadding = 24;
+  const lineTop = lineEl.offsetTop;
+  const lineHeight = lineEl.offsetHeight;
+  const canFullyFit = lineHeight <= viewportHeight - (viewportPadding * 2);
+  const desiredTop = canFullyFit
+    ? clamp(viewportHeight * 0.38, viewportPadding, viewportHeight - viewportPadding - lineHeight)
+    : viewportPadding;
+  const maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+  return clamp(lineTop - desiredTop, 0, maxTop);
+}
+
+function recalculateLineAnchorScrollTops() {
+  const lineEls = els.readerContent.querySelectorAll('.line');
+  state.lineAnchorScrollTops = Array.prototype.map.call(lineEls, getLineAnchorTargetTop);
+}
+
 function keepLineInView(lineEl, options) {
   if (!lineEl) return;
 
@@ -71,11 +92,7 @@ function keepLineInView(lineEl, options) {
   const lineHeight = lineEl.offsetHeight;
   const lineTopInViewport = lineTop - viewport.scrollTop;
   const lineBottomInViewport = lineTopInViewport + lineHeight;
-  const canFullyFit = lineHeight <= viewportHeight - (viewportPadding * 2);
-  const desiredTop = canFullyFit
-    ? clamp(viewportHeight * 0.38, viewportPadding, viewportHeight - viewportPadding - lineHeight)
-    : viewportPadding;
-  const targetTop = lineTop - desiredTop;
+  const targetTop = getLineAnchorTargetTop(lineEl);
   const shouldAdjust = (options && options.force)
     || lineTopInViewport < viewportPadding
     || lineBottomInViewport > viewportHeight - viewportPadding;
@@ -99,8 +116,17 @@ function setActiveLine(index, keepVisible, options) {
     if (keepVisible) keepLineInView(lineEl, options || {});
   }
 
+  if (!options || options.syncPlaybackElapsed !== false) {
+    state.playbackElapsedMs = getElapsedDurationForLineIndex(index);
+    if (state.isPlaying) {
+      state.playbackStartedAt = performance.now() - state.playbackElapsedMs;
+    }
+  }
+
   updateCurrentSectionContext();
-  updateProgress();
+  if (!options || !options.skipProgress) {
+    updateProgress();
+  }
 }
 
 function buildSectionJump(sections) {
@@ -191,6 +217,7 @@ function renderPayload(payload, restoreMarker) {
   els.readerContent.appendChild(fragment);
   els.readerContent.style.fontSize = state.fontSize + 'px';
   recalculateRenderedLineWeights();
+  recalculateLineAnchorScrollTops();
 
   const newIndex = findBestRestoreIndex(restoreMarker || {});
   stopPlayback();

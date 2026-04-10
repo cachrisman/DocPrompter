@@ -47,6 +47,7 @@ function getValueEditor(kind) {
 
 function setSpeed(value, options) {
   state.speed = clamp(parseFiniteNumber(value, state.speed), SPEED_MIN, SPEED_MAX);
+  recomputePlaybackTimeline();
   syncSpeedUi();
   updateProgress();
 
@@ -67,6 +68,7 @@ function setFontSize(value, options) {
   syncFontSizeUi();
   els.readerContent.style.fontSize = state.fontSize + 'px';
   recalculateRenderedLineWeights();
+  recalculateLineAnchorScrollTops();
   updateProgress();
 
   if (options && options.keepActiveLineVisible) {
