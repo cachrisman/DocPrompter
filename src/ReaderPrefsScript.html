@@ -5,7 +5,13 @@ function loadPreferences() {
     if (!raw) return;
 
     const prefs = JSON.parse(raw);
-    if (typeof prefs.speed === 'number') state.speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
+    if (typeof prefs.speed === 'number') {
+      let speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
+      if (prefs.timingPreferenceVersion !== TIMING_PREFERENCE_VERSION) {
+        speed = clamp(Math.max(SPEED_DEFAULT, speed * 1.35), SPEED_MIN, SPEED_MAX);
+      }
+      state.speed = speed;
+    }
     if (typeof prefs.fontSize === 'number') state.fontSize = clamp(prefs.fontSize, FONT_SIZE_MIN, FONT_SIZE_MAX);
     if (prefs.theme === 'dark' || prefs.theme === 'light') state.theme = prefs.theme;
     if (typeof prefs.focusMode === 'boolean') state.focusMode = prefs.focusMode;
@@ -28,7 +34,8 @@ function savePreferences() {
       theme: state.theme,
       focusMode: state.focusMode,
       lineAlignment: state.lineAlignment,
-      alignmentPreferenceVersion: 2
+      alignmentPreferenceVersion: 2,
+      timingPreferenceVersion: TIMING_PREFERENCE_VERSION
     }));
   } catch (err) {
     /* ignore storage errors */

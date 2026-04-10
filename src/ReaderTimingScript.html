@@ -45,7 +45,7 @@ function animateViewportScrollTo(targetTop, durationMs) {
     return;
   }
 
-  const animationDuration = clamp(durationMs || 260, 180, 1200);
+  const animationDuration = clamp(durationMs || 220, 120, 480);
   const startedAt = performance.now();
 
   function step(now) {
@@ -65,21 +65,21 @@ function animateViewportScrollTo(targetTop, durationMs) {
 
 function estimateBaseLineDurationMs(line) {
   const text = (line && line.text ? line.text : '').trim();
-  if (!text) return 450;
+  if (!text) return 320;
 
   const words = text.split(/\s+/).filter(Boolean).length;
   const pauseMarks = (text.match(/[,:;()]/g) || []).length;
   const stopMarks = (text.match(/[.!?]/g) || []).length;
   const bracketPauses = (text.match(/\[[^\]]+\]/g) || []).length;
-  const cueBonus = line && line.isCue ? 220 : 0;
+  const cueBonus = line && line.isCue ? 110 : 0;
   const wordDurationMs = words * (60000 / BASE_READING_WORDS_PER_MINUTE);
-  const punctuationPauseMs = (pauseMarks * 45) + (stopMarks * 110) + (bracketPauses * 180) + cueBonus;
-  return Math.max(450, Math.round(wordDurationMs + punctuationPauseMs));
+  const punctuationPauseMs = (pauseMarks * 20) + (stopMarks * 65) + (bracketPauses * 90) + cueBonus;
+  return Math.max(320, Math.round(wordDurationMs + punctuationPauseMs));
 }
 
 function getLineDurationMs(index) {
   const base = state.lineReadWeights[index] || 900;
-  return Math.round(base / state.speed);
+  return clamp(Math.round(base / state.speed), 240, 2200);
 }
 
 function getElapsedDurationMs() {
@@ -117,10 +117,14 @@ function recalculateRenderedLineWeights() {
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
     const measuredHeight = Math.max(0, lineEl.getBoundingClientRect().height - paddingTop - paddingBottom);
     const renderedRows = Math.max(1, Math.round(measuredHeight / Math.max(1, lineHeight)));
-    const wrapFactor = 1 + ((renderedRows - 1) * 0.16);
-    const sourceBreakFactor = line.sourceBreakBefore ? 1.05 : 1;
+    const wrapFactor = 1 + ((renderedRows - 1) * 0.08);
+    const sourceBreakFactor = line.sourceBreakBefore ? 1.02 : 1;
     return Math.round(base * wrapFactor * sourceBreakFactor);
   });
+}
+
+function getPlaybackScrollDurationMs(delayMs) {
+  return clamp(Math.round(delayMs * 0.22), 120, 220);
 }
 
 function schedulePlaybackAdvance() {
@@ -138,7 +142,7 @@ function schedulePlaybackAdvance() {
     if (state.activeLineIndex < state.lines.length - 1) {
       setActiveLine(state.activeLineIndex + 1, true, {
         force: true,
-        durationMs: delayMs * 0.78
+        durationMs: getPlaybackScrollDurationMs(delayMs)
       });
       schedulePlaybackAdvance();
     } else {
