@@ -1,5 +1,5 @@
 function include_(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  return HtmlService.createTemplateFromFile(filename).evaluate().getContent();
 }
 
 function prepareReaderLaunch() {
