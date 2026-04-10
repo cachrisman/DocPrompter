@@ -381,6 +381,9 @@ Use the project in this order of preference:
 
 ## Changelog
 
+### v3.5.10 (2026-04-10)
+- Corrected the alignment control so it shows the current alignment state instead of the toggle action, and reset older saved alignment state to left-aligned reading to avoid reopening in the previously misleading centered-line mode.
+
 ### v3.5.9 (2026-04-10)
 - Fixed the reader footer geometry so long current-section labels are constrained inside a fixed progress column instead of shifting the bottom bar layout.
 - Tightened spacing between wrapped display chunks, preserved larger gaps only for real source line breaks, and carried source-break metadata through the server-side line splitter.

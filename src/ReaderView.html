@@ -254,7 +254,10 @@
           if (typeof prefs.fontSize === 'number') state.fontSize = clamp(prefs.fontSize, FONT_SIZE_MIN, FONT_SIZE_MAX);
           if (prefs.theme === 'dark' || prefs.theme === 'light') state.theme = prefs.theme;
           if (typeof prefs.focusMode === 'boolean') state.focusMode = prefs.focusMode;
-          if (prefs.lineAlignment === LINE_ALIGNMENT_CENTER || prefs.lineAlignment === LINE_ALIGNMENT_LEFT) {
+          if (
+            prefs.alignmentPreferenceVersion === 2 &&
+            (prefs.lineAlignment === LINE_ALIGNMENT_CENTER || prefs.lineAlignment === LINE_ALIGNMENT_LEFT)
+          ) {
             state.lineAlignment = prefs.lineAlignment;
           }
         } catch (err) {
@@ -269,7 +272,8 @@
             fontSize: state.fontSize,
             theme: state.theme,
             focusMode: state.focusMode,
-            lineAlignment: state.lineAlignment
+            lineAlignment: state.lineAlignment,
+            alignmentPreferenceVersion: 2
           }));
         } catch (err) {
           /* ignore storage errors */
@@ -380,7 +384,9 @@
 
       function applyAlignmentUi() {
         document.body.classList.toggle('line-align-center', state.lineAlignment === LINE_ALIGNMENT_CENTER);
-        els.alignBtn.textContent = state.lineAlignment === LINE_ALIGNMENT_CENTER ? 'Left align' : 'Centered lines';
+        els.alignBtn.textContent = state.lineAlignment === LINE_ALIGNMENT_CENTER
+          ? 'Alignment: Center'
+          : 'Alignment: Left';
       }
 
       function applyPreferenceUi() {
