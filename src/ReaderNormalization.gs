@@ -208,24 +208,8 @@ function splitIntoDisplayLines_(text, maxChars) {
   const limit = maxChars || 120;
 
   paragraphs.forEach(function (paragraph, paragraphIndex) {
-    const words = paragraph.split(/\s+/).filter(Boolean);
-    if (!words.length) return;
-
-    const paragraphLines = [];
-    let current = '';
-
-    words.forEach(function (word) {
-      const candidate = current ? current + ' ' + word : word;
-      if (candidate.length <= limit || !current) {
-        current = candidate;
-      } else {
-        paragraphLines.push(current);
-        current = word;
-      }
-    });
-
-    if (current) paragraphLines.push(current);
-    rebalanceDisplayLines_(paragraphLines, limit);
+    const paragraphLines = splitParagraphIntoDisplayLines_(paragraph, limit);
+    if (!paragraphLines.length) return;
 
     paragraphLines.forEach(function (lineText, lineIndex) {
       out.push({
@@ -236,6 +220,154 @@ function splitIntoDisplayLines_(text, maxChars) {
   });
 
   return out;
+}
+
+function splitParagraphIntoDisplayLines_(paragraph, limit) {
+  const sentenceUnits = splitIntoSentenceUnits_(paragraph);
+  if (!sentenceUnits.length) {
+    return splitLongDisplayUnit_(paragraph, limit);
+  }
+  return packDisplayUnits_(sentenceUnits, limit);
+}
+
+function splitIntoSentenceUnits_(text) {
+  const units = [];
+  const pauseRegex = /\[[^\]]+\]/g;
+  let cursor = 0;
+  let match;
+
+  while ((match = pauseRegex.exec(text)) !== null) {
+    appendSentenceUnitsFromPlainText_(units, text.substring(cursor, match.index));
+    const pauseToken = cleanText_(match[0]);
+    if (pauseToken) units.push(pauseToken);
+    cursor = match.index + match[0].length;
+  }
+
+  appendSentenceUnitsFromPlainText_(units, text.substring(cursor));
+  return units.filter(Boolean);
+}
+
+function appendSentenceUnitsFromPlainText_(units, text) {
+  const value = cleanText_(text);
+  if (!value) return;
+
+  let start = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charAt(i);
+    if (ch !== '.' && ch !== '!' && ch !== '?') continue;
+
+    const prev = value.charAt(i - 1);
+    const next = value.charAt(i + 1);
+    if (ch === '.' && /\d/.test(prev) && /\d/.test(next)) {
+      continue;
+    }
+
+    let end = i + 1;
+    while (end < value.length && /["')\]]/.test(value.charAt(end))) {
+      end += 1;
+    }
+
+    const nextVisible = value.charAt(end);
+    if (nextVisible && !/\s/.test(nextVisible)) {
+      continue;
+    }
+
+    const sentence = cleanText_(value.substring(start, end));
+    if (sentence) units.push(sentence);
+    start = end;
+  }
+
+  const tail = cleanText_(value.substring(start));
+  if (tail) units.push(tail);
+}
+
+function packDisplayUnits_(units, limit) {
+  const out = [];
+  let current = '';
+
+  units.forEach(function (unit) {
+    const cleanUnit = cleanText_(unit);
+    if (!cleanUnit) return;
+
+    if (cleanUnit.length > limit) {
+      if (current) {
+        out.push(current);
+        current = '';
+      }
+      splitLongDisplayUnit_(cleanUnit, limit).forEach(function (piece) {
+        if (piece) out.push(piece);
+      });
+      return;
+    }
+
+    const candidate = current ? current + ' ' + cleanUnit : cleanUnit;
+    if (candidate.length <= limit || !current) {
+      current = candidate;
+    } else {
+      out.push(current);
+      current = cleanUnit;
+    }
+  });
+
+  if (current) out.push(current);
+  rebalanceDisplayLines_(out, limit);
+  return out;
+}
+
+function splitLongDisplayUnit_(text, limit) {
+  const cleanUnit = cleanText_(text);
+  if (!cleanUnit) return [];
+  if (cleanUnit.length <= limit) return [cleanUnit];
+
+  const clauseUnits = splitIntoClauseUnits_(cleanUnit);
+  if (clauseUnits.length > 1) {
+    const clauseLines = packDisplayUnits_(clauseUnits, limit);
+    if (clauseLines.length > 1 || (clauseLines[0] && clauseLines[0].length <= limit)) {
+      return clauseLines;
+    }
+  }
+
+  return wrapWordsIntoDisplayLines_(cleanUnit, limit);
+}
+
+function splitIntoClauseUnits_(text) {
+  const units = [];
+  let start = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charAt(i);
+    if (ch !== ',' && ch !== ';' && ch !== ':' && ch !== '—') continue;
+
+    const unit = cleanText_(text.substring(start, i + 1));
+    if (unit) units.push(unit);
+    start = i + 1;
+  }
+
+  const tail = cleanText_(text.substring(start));
+  if (tail) units.push(tail);
+  return units;
+}
+
+function wrapWordsIntoDisplayLines_(text, limit) {
+  const words = cleanText_(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const lines = [];
+  let current = '';
+
+  words.forEach(function (word) {
+    const candidate = current ? current + ' ' + word : word;
+    if (candidate.length <= limit || !current) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  });
+
+  if (current) lines.push(current);
+  rebalanceDisplayLines_(lines, limit);
+  return lines;
 }
 
 function rebalanceDisplayLines_(lines, limit) {
@@ -250,6 +382,10 @@ function rebalanceDisplayLines_(lines, limit) {
       previous.indexOf(' ') > 0 &&
       previous.length > Math.round(limit * 0.45)
     ) {
+      if (endsWithSemanticBoundary_(previous)) {
+        break;
+      }
+
       const splitIndex = previous.lastIndexOf(' ');
       const movedWord = previous.substring(splitIndex + 1);
       previous = previous.substring(0, splitIndex);
@@ -259,6 +395,10 @@ function rebalanceDisplayLines_(lines, limit) {
     lines[i - 1] = previous;
     lines[i] = current;
   }
+}
+
+function endsWithSemanticBoundary_(text) {
+  return /[.!?;:\]\)]$/.test(String(text || '').trim());
 }
 
 function cleanText_(text) {

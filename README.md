@@ -384,6 +384,11 @@ Use the project in this order of preference:
 
 ## Changelog
 
+### v3.6.1 (2026-04-10)
+- Changed paragraph normalization to prefer sentence-aware display lines, with clause-level fallback only when a single sentence still exceeds the display limit.
+- Stopped the orphan rebalancer from peeling words off sentence-complete lines, so natural breaks like `team:` stay attached to the sentence they belong to.
+- Retuned the reader playback baseline and distance smoothing so the `0.5` to `1.5` speed range maps more closely to human speaking pace and produces steadier scroll velocity.
+
 ### v3.6.0 (2026-04-10)
 - Refactored the Apps Script repo into focused server modules, reader script includes, and reader CSS layers so the project is substantially easier to navigate and maintain.
 - Removed the source chooser, `Launch.html`, and all selection-snapshot plumbing so DocPrompter now launches the whole document only.
