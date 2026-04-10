@@ -6,11 +6,7 @@ function loadPreferences() {
 
     const prefs = JSON.parse(raw);
     if (typeof prefs.speed === 'number') {
-      let speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
-      if (prefs.timingPreferenceVersion !== TIMING_PREFERENCE_VERSION) {
-        speed = clamp(Math.max(SPEED_DEFAULT, speed * 1.4), SPEED_MIN, SPEED_MAX);
-      }
-      state.speed = speed;
+      state.speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
     }
     if (typeof prefs.fontSize === 'number') state.fontSize = clamp(prefs.fontSize, FONT_SIZE_MIN, FONT_SIZE_MAX);
     if (prefs.theme === 'dark' || prefs.theme === 'light') state.theme = prefs.theme;

@@ -69,16 +69,16 @@ function animateViewportScrollTo(targetTop, durationMs) {
 
 function estimateBaseLineDurationMs(line) {
   const text = (line && line.text ? line.text : '').trim();
-  if (!text) return 260;
+  if (!text) return MIN_LINE_DURATION_MS;
 
   const words = text.split(/\s+/).filter(Boolean).length;
   const pauseMarks = (text.match(/[,:;()]/g) || []).length;
   const stopMarks = (text.match(/[.!?]/g) || []).length;
   const bracketPauses = (text.match(/\[[^\]]+\]/g) || []).length;
-  const cueBonus = line && line.isCue ? 70 : 0;
+  const cueBonus = line && line.isCue ? 160 : 0;
   const wordDurationMs = words * (60000 / BASE_READING_WORDS_PER_MINUTE);
-  const punctuationPauseMs = (pauseMarks * 10) + (stopMarks * 38) + (bracketPauses * 55) + cueBonus;
-  return Math.max(260, Math.round(wordDurationMs + punctuationPauseMs));
+  const punctuationPauseMs = (pauseMarks * 22) + (stopMarks * 110) + (bracketPauses * 1200) + cueBonus;
+  return Math.max(MIN_LINE_DURATION_MS, Math.round(wordDurationMs + punctuationPauseMs));
 }
 
 function getLineDurationMs(index) {
@@ -93,13 +93,54 @@ function recomputePlaybackTimeline() {
         lineProgress: 0
       };
   const startTimes = [];
-  const durations = [];
+  let durations = [];
   let elapsed = 0;
 
-  state.lineReadWeights.forEach(function (base) {
+  const readingDurations = state.lineReadWeights.map(function (base) {
+    return clamp(Math.round(base / state.speed), MIN_LINE_DURATION_MS, MAX_LINE_DURATION_MS);
+  });
+
+  if (readingDurations.length <= 1 || state.lineAnchorScrollTops.length < 2) {
+    durations = readingDurations.slice();
+  } else {
+    const movingReadingDurations = readingDurations.slice(0, -1);
+    const finalHoldDuration = readingDurations[readingDurations.length - 1];
+    const totalMovingReadingDuration = movingReadingDurations.reduce(function (sum, duration) {
+      return sum + duration;
+    }, 0);
+    const distances = movingReadingDurations.map(function (unused, index) {
+      const currentTop = state.lineAnchorScrollTops[index] || 0;
+      const nextTop = state.lineAnchorScrollTops[index + 1] || currentTop;
+      return Math.max(0, Math.abs(nextTop - currentTop));
+    });
+    const totalDistance = distances.reduce(function (sum, distance) {
+      return sum + distance;
+    }, 0);
+
+    if (!totalDistance || !totalMovingReadingDuration) {
+      durations = readingDurations.slice();
+    } else {
+      const blendedMovingDurations = movingReadingDurations.map(function (duration, index) {
+        const distanceShare = distances[index] / totalDistance;
+        const distanceDuration = totalMovingReadingDuration * distanceShare;
+        return (duration * (1 - SCROLL_DISTANCE_BLEND)) + (distanceDuration * SCROLL_DISTANCE_BLEND);
+      });
+      const blendedMovingTotal = blendedMovingDurations.reduce(function (sum, duration) {
+        return sum + duration;
+      }, 0);
+      const normalizationFactor = blendedMovingTotal
+        ? totalMovingReadingDuration / blendedMovingTotal
+        : 1;
+
+      durations = blendedMovingDurations.map(function (duration) {
+        return Math.max(MIN_LINE_DURATION_MS, Math.round(duration * normalizationFactor));
+      });
+      durations.push(finalHoldDuration);
+    }
+  }
+
+  durations.forEach(function (duration) {
     startTimes.push(elapsed);
-    const duration = clamp(Math.round(base / state.speed), 180, 1600);
-    durations.push(duration);
     elapsed += duration;
   });
 
@@ -152,12 +193,10 @@ function recalculateRenderedLineWeights() {
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
     const measuredHeight = Math.max(0, lineEl.getBoundingClientRect().height - paddingTop - paddingBottom);
     const renderedRows = Math.max(1, Math.round(measuredHeight / Math.max(1, lineHeight)));
-    const wrapFactor = 1 + ((renderedRows - 1) * 0.04);
+    const wrapFactor = 1 + ((renderedRows - 1) * 0.1);
     const sourceBreakFactor = line.sourceBreakBefore ? 1.01 : 1;
     return Math.round(base * wrapFactor * sourceBreakFactor);
   });
-
-  recomputePlaybackTimeline();
 }
 
 function getPlaybackPositionForElapsed(elapsedMs) {

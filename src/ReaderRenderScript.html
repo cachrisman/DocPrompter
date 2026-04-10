@@ -80,6 +80,7 @@ function getLineAnchorTargetTop(lineEl) {
 function recalculateLineAnchorScrollTops() {
   const lineEls = els.readerContent.querySelectorAll('.line');
   state.lineAnchorScrollTops = Array.prototype.map.call(lineEls, getLineAnchorTargetTop);
+  recomputePlaybackTimeline();
 }
 
 function keepLineInView(lineEl, options) {
