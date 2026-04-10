@@ -1,3 +1,4 @@
+<script>
 function updateProgress() {
   if (!state.lines.length) {
     els.currentSectionText.textContent = 'Section --';
@@ -195,3 +196,4 @@ function renderPayload(payload, restoreMarker) {
   setActiveLine(newIndex, true, { force: true, durationMs: 0 });
   updateProgress();
 }
+</script>
