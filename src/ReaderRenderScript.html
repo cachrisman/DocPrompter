@@ -170,24 +170,25 @@ function renderPayload(payload, restoreMarker) {
 
   buildSectionJump(state.sections);
 
-  const html = state.lines.map(function (line, idx) {
+  const fragment = document.createDocumentFragment();
+  state.lines.forEach(function (line, idx) {
     const classes = ['line', `line-${line.kind || 'paragraph'}`];
     const prevLine = idx > 0 ? state.lines[idx - 1] : null;
     const isSectionStart = !prevLine || prevLine.sectionId !== line.sectionId;
     classes.push(isSectionStart ? 'line-section-start' : 'line-continued');
     if (line.isCue) classes.push('line-cue');
     if (line.sourceBreakBefore) classes.push('line-source-break');
-    return `
-      <div
-        class="${classes.join(' ')}"
-        data-line-index="${idx}"
-        data-section-id="${escapeHtml(line.sectionId || '')}">
-        ${escapeHtml(line.text || '')}
-      </div>
-    `;
-  }).join('');
 
-  els.readerContent.innerHTML = html;
+    const lineEl = document.createElement('div');
+    lineEl.className = classes.join(' ');
+    lineEl.dataset.lineIndex = String(idx);
+    lineEl.dataset.sectionId = line.sectionId || '';
+    lineEl.textContent = line.text || '';
+    fragment.appendChild(lineEl);
+  });
+
+  els.readerContent.innerHTML = '';
+  els.readerContent.appendChild(fragment);
   els.readerContent.style.fontSize = state.fontSize + 'px';
   recalculateRenderedLineWeights();
 

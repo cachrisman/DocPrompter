@@ -65,21 +65,21 @@ function animateViewportScrollTo(targetTop, durationMs) {
 
 function estimateBaseLineDurationMs(line) {
   const text = (line && line.text ? line.text : '').trim();
-  if (!text) return 320;
+  if (!text) return 260;
 
   const words = text.split(/\s+/).filter(Boolean).length;
   const pauseMarks = (text.match(/[,:;()]/g) || []).length;
   const stopMarks = (text.match(/[.!?]/g) || []).length;
   const bracketPauses = (text.match(/\[[^\]]+\]/g) || []).length;
-  const cueBonus = line && line.isCue ? 110 : 0;
+  const cueBonus = line && line.isCue ? 70 : 0;
   const wordDurationMs = words * (60000 / BASE_READING_WORDS_PER_MINUTE);
-  const punctuationPauseMs = (pauseMarks * 20) + (stopMarks * 65) + (bracketPauses * 90) + cueBonus;
-  return Math.max(320, Math.round(wordDurationMs + punctuationPauseMs));
+  const punctuationPauseMs = (pauseMarks * 10) + (stopMarks * 38) + (bracketPauses * 55) + cueBonus;
+  return Math.max(260, Math.round(wordDurationMs + punctuationPauseMs));
 }
 
 function getLineDurationMs(index) {
   const base = state.lineReadWeights[index] || 900;
-  return clamp(Math.round(base / state.speed), 240, 2200);
+  return clamp(Math.round(base / state.speed), 180, 1600);
 }
 
 function getElapsedDurationMs() {
@@ -117,14 +117,14 @@ function recalculateRenderedLineWeights() {
     const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
     const measuredHeight = Math.max(0, lineEl.getBoundingClientRect().height - paddingTop - paddingBottom);
     const renderedRows = Math.max(1, Math.round(measuredHeight / Math.max(1, lineHeight)));
-    const wrapFactor = 1 + ((renderedRows - 1) * 0.08);
-    const sourceBreakFactor = line.sourceBreakBefore ? 1.02 : 1;
+    const wrapFactor = 1 + ((renderedRows - 1) * 0.04);
+    const sourceBreakFactor = line.sourceBreakBefore ? 1.01 : 1;
     return Math.round(base * wrapFactor * sourceBreakFactor);
   });
 }
 
 function getPlaybackScrollDurationMs(delayMs) {
-  return clamp(Math.round(delayMs * 0.22), 120, 220);
+  return clamp(Math.round(delayMs * 0.18), 90, 160);
 }
 
 function schedulePlaybackAdvance() {

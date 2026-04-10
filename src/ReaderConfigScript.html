@@ -1,17 +1,17 @@
 <script>
 const STORAGE_KEY = 'docprompter.reader.preferences.v1';
 const SPEED_MIN = 0.6;
-const SPEED_MAX = 3.6;
-const SPEED_DEFAULT = 1.35;
+const SPEED_MAX = 4.8;
+const SPEED_DEFAULT = 1.8;
 const FONT_SIZE_MIN = 40;
 const FONT_SIZE_MAX = 80;
 const FONT_SIZE_DEFAULT = 48;
-const BASE_READING_WORDS_PER_MINUTE = 320;
+const BASE_READING_WORDS_PER_MINUTE = 420;
 const LINE_ALIGNMENT_LEFT = 'left';
 const LINE_ALIGNMENT_CENTER = 'center';
 const HELP_STORAGE_KEY = 'docprompter.reader.help.v1';
 const CHROME_IDLE_DELAY_MS = 1800;
-const TIMING_PREFERENCE_VERSION = 2;
+const TIMING_PREFERENCE_VERSION = 3;
 
 function normalizeBootstrapString(value) {
   if (value === null || value === undefined) return '';

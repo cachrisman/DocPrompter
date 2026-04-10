@@ -8,7 +8,7 @@ function loadPreferences() {
     if (typeof prefs.speed === 'number') {
       let speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
       if (prefs.timingPreferenceVersion !== TIMING_PREFERENCE_VERSION) {
-        speed = clamp(Math.max(SPEED_DEFAULT, speed * 1.35), SPEED_MIN, SPEED_MAX);
+        speed = clamp(Math.max(SPEED_DEFAULT, speed * 1.4), SPEED_MIN, SPEED_MAX);
       }
       state.speed = speed;
     }
