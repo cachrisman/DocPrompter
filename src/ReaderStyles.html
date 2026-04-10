@@ -97,6 +97,7 @@ select {
   max-width: min(31ch, 100%);
   margin: 0 auto;
   line-height: 1.36;
+  text-align: left;
 }
 
 .debug-panel {
@@ -231,6 +232,7 @@ body.theme-dark .help-card {
   overflow-wrap: anywhere;
   word-break: normal;
   cursor: pointer;
+  text-align: left;
 }
 
 .line + .line {
@@ -279,17 +281,24 @@ body.theme-dark .line.active {
 }
 
 body.line-align-center .reader-content {
+  text-align: left;
+}
+
+body.line-align-center .line {
   text-align: center;
 }
 
 .controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 280px;
-  align-items: end;
-  gap: 16px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
   padding: 14px 24px 18px;
+  min-height: 94px;
   border-top: 1px solid rgba(128, 128, 128, 0.25);
   transition: opacity 0.18s ease;
+  box-sizing: border-box;
 }
 
 .controls-left,
@@ -302,20 +311,28 @@ body.line-align-center .reader-content {
 }
 
 .controls-left {
-  justify-self: start;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .controls-center {
-  justify-self: center;
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  justify-content: center;
 }
 
 .controls-right {
-  justify-self: end;
+  margin-left: auto;
+  justify-content: flex-end;
   width: 280px;
   min-width: 280px;
   max-width: 280px;
+  flex: 0 0 280px;
 }
 
 .slider-control {
@@ -448,6 +465,7 @@ body.help-open .controls-right {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    min-height: 0;
   }
 
   .topbar-right,
@@ -458,10 +476,19 @@ body.help-open .controls-right {
     flex-wrap: wrap;
   }
 
+  .controls-left,
+  .controls-center,
   .controls-right {
+    position: static;
+    transform: none;
     width: auto;
     min-width: 0;
     max-width: none;
+    flex: 0 0 auto;
+  }
+
+  .controls-right {
+    margin-left: 0;
   }
 
   .reader-viewport {

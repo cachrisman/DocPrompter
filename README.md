@@ -381,6 +381,12 @@ Use the project in this order of preference:
 
 ## Changelog
 
+### v3.5.11 (2026-04-10)
+- Forced explicit left alignment on reader lines and moved centered mode onto the line elements themselves so left-aligned reading no longer inherits stale centering.
+- Rebuilt the footer layout so the transport controls stay anchored to the viewport center while the speed, font, and alignment controls stack vertically on the left.
+- Retuned playback timing to a word-based estimate with lighter wrap weighting so autoplay and ETA no longer stall on large wrapped lines.
+- Made `Space` commit any open inline control editor and toggle playback even when focus is still inside a reader control.
+
 ### v3.5.10 (2026-04-10)
 - Corrected the alignment control so it shows the current alignment state instead of the toggle action, and reset older saved alignment state to left-aligned reading to avoid reopening in the previously misleading centered-line mode.
 
