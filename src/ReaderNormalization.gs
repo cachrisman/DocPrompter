@@ -388,8 +388,13 @@ function rebalanceDisplayLines_(lines, limit) {
 
       const splitIndex = previous.lastIndexOf(' ');
       const movedWord = previous.substring(splitIndex + 1);
+      const candidateCurrent = movedWord + ' ' + current;
+      if (candidateCurrent.length > limit) {
+        break;
+      }
+
       previous = previous.substring(0, splitIndex);
-      current = movedWord + ' ' + current;
+      current = candidateCurrent;
     }
 
     lines[i - 1] = previous;
@@ -411,6 +416,9 @@ function cleanText_(text) {
 }
 
 function isCueLine_(text) {
-  const value = String(text || '');
-  return /^note:/i.test(value) || /^pause:/i.test(value) || /^emphasis:/i.test(value);
+  const value = String(text || '').trim();
+  return /^note:/i.test(value)
+    || /^pause:/i.test(value)
+    || /^emphasis:/i.test(value)
+    || /^\[[^\]]+\]$/.test(value);
 }

@@ -119,6 +119,7 @@ When making changes:
 2. preserve existing behavior unless the change explicitly intends to alter it.
 3. document new assumptions in `README.md`.
 4. add or update manual test notes when behavior changes are user-visible.
+5. when editing a markdown changelog, include a full UTC timestamp in each entry using `YYYY-MM-DD HH:MM:SS UTC` format.
 
 ---
 

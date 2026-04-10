@@ -299,6 +299,10 @@ The **Docs add-on homepage** is supported, but it should stay secondary until a 
 ### Version token caveat
 The current version token is derived from document ID plus body-text characteristics. It is good enough for polling-based change detection, but it is not a formal document revision ID.
 
+### Restore-position caveat
+Refresh restore is best-effort, not exact state replay.
+Section and line IDs are structurally derived, so heavy edits above the active point or repeated identical lines can still fall back to nearest-match restore behavior.
+
 ### Browser window caveat
 The app opens in a new tab or window depending on browser behavior and popup settings. It does not control always-on-top or transparency.
 
@@ -383,6 +387,10 @@ Use the project in this order of preference:
 ---
 
 ## Changelog
+
+### v3.6.2 (2026-04-10)
+- **2026-04-10 22:12:28 UTC** — Restarted autoplay correctly after refresh even for single-line documents, aligned bracket-only pause lines with cue styling, stopped orphan rebalancing from creating over-limit lines, and made timing preference versioning actually reset stale saved speed values.
+- **2026-04-10 22:12:28 UTC** — Documented the current restore-position limitation more explicitly: structural edits and repeated lines still make refresh restoration best-effort rather than exact.
 
 ### v3.6.1 (2026-04-10)
 - Changed paragraph normalization to prefer sentence-aware display lines, with clause-level fallback only when a single sentence still exceeds the display limit.

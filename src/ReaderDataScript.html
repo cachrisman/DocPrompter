@@ -17,7 +17,7 @@ function loadPayload(options) {
         docId: state.docId,
         lineCount: (payload.lines || []).length
       });
-      if (wasPlaying && state.lines.length > 1) {
+      if (wasPlaying && state.lines.length > 0) {
         startPlayback();
       }
     })

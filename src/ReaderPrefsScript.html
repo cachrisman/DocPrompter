@@ -5,8 +5,13 @@ function loadPreferences() {
     if (!raw) return;
 
     const prefs = JSON.parse(raw);
+    const hasCurrentTimingPreferences = prefs.timingPreferenceVersion === TIMING_PREFERENCE_VERSION;
     if (typeof prefs.speed === 'number') {
-      state.speed = clamp(prefs.speed, SPEED_MIN, SPEED_MAX);
+      state.speed = clamp(
+        hasCurrentTimingPreferences ? prefs.speed : SPEED_DEFAULT,
+        SPEED_MIN,
+        SPEED_MAX
+      );
     }
     if (typeof prefs.fontSize === 'number') state.fontSize = clamp(prefs.fontSize, FONT_SIZE_MIN, FONT_SIZE_MAX);
     if (prefs.theme === 'dark' || prefs.theme === 'light') state.theme = prefs.theme;
