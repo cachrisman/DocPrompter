@@ -381,6 +381,12 @@ Use the project in this order of preference:
 
 ## Changelog
 
+### v3.5.9 (2026-04-10)
+- Fixed the reader footer geometry so long current-section labels are constrained inside a fixed progress column instead of shifting the bottom bar layout.
+- Tightened spacing between wrapped display chunks, preserved larger gaps only for real source line breaks, and carried source-break metadata through the server-side line splitter.
+- Retuned autoplay pacing so speed acts as a wider multiplier range while the ETA and playback cadence still adapt to measured wrap depth and larger font sizes.
+- Added inline numeric editing for the speed and font controls so clicking the displayed value opens a direct-entry field.
+
 ### v3.5.8 (2026-04-09)
 - Added a built-in `?` help overlay that opens automatically on first use and documents the main reader controls and shortcuts.
 - Added click-to-activate and double-click-to-play behavior on reader lines so navigation can stay lightweight even without the footer controls.

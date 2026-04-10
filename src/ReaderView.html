@@ -85,14 +85,20 @@
         <div class="controls-left">
           <label class="slider-control">
             <span class="control-label">Speed</span>
-            <input id="speedInput" type="range" min="0.2" max="0.6" step="0.05" value="0.35">
-            <span class="control-value" id="speedValue">0.35</span>
+            <input id="speedInput" type="range" min="0.6" max="2.4" step="0.05" value="1">
+            <button id="speedValueBtn" type="button" class="control-value-button" title="Edit speed">
+              <span class="control-value" id="speedValue">1</span>
+            </button>
+            <input id="speedValueInput" class="control-value-input" type="number" min="0.6" max="2.4" step="0.05" value="1" hidden>
           </label>
 
           <label class="slider-control">
             <span class="control-label">Font</span>
-            <input id="fontSizeInput" type="range" min="9" max="84" step="1" value="30">
-            <span class="control-value" id="fontSizeValue">30</span>
+            <input id="fontSizeInput" type="range" min="40" max="80" step="1" value="48">
+            <button id="fontSizeValueBtn" type="button" class="control-value-button" title="Edit font size">
+              <span class="control-value" id="fontSizeValue">48</span>
+            </button>
+            <input id="fontSizeValueInput" class="control-value-input" type="number" min="40" max="80" step="1" value="48" hidden>
           </label>
 
           <button id="alignBtn" title="Toggle line alignment">Centered lines</button>
@@ -129,12 +135,12 @@
 
     <script>
       const STORAGE_KEY = 'docprompter.reader.preferences.v1';
-      const SPEED_MIN = 0.2;
-      const SPEED_MAX = 0.6;
-      const SPEED_DEFAULT = 0.35;
-      const FONT_SIZE_MIN = 9;
-      const FONT_SIZE_MAX = 84;
-      const FONT_SIZE_DEFAULT = 30;
+      const SPEED_MIN = 0.6;
+      const SPEED_MAX = 2.4;
+      const SPEED_DEFAULT = 1.0;
+      const FONT_SIZE_MIN = 40;
+      const FONT_SIZE_MAX = 80;
+      const FONT_SIZE_DEFAULT = 48;
       const LINE_ALIGNMENT_LEFT = 'left';
       const LINE_ALIGNMENT_CENTER = 'center';
       const HELP_STORAGE_KEY = 'docprompter.reader.help.v1';
@@ -207,9 +213,13 @@
         lineForwardBtn: document.getElementById('lineForwardBtn'),
         lineEndBtn: document.getElementById('lineEndBtn'),
         speedInput: document.getElementById('speedInput'),
+        speedValueBtn: document.getElementById('speedValueBtn'),
         speedValue: document.getElementById('speedValue'),
+        speedValueInput: document.getElementById('speedValueInput'),
         fontSizeInput: document.getElementById('fontSizeInput'),
+        fontSizeValueBtn: document.getElementById('fontSizeValueBtn'),
         fontSizeValue: document.getElementById('fontSizeValue'),
+        fontSizeValueInput: document.getElementById('fontSizeValueInput'),
         alignBtn: document.getElementById('alignBtn'),
         currentSectionText: document.getElementById('currentSectionText'),
         progressText: document.getElementById('progressText'),
@@ -320,6 +330,27 @@
         return parseFloat(Number(value).toFixed(digits || 0)).toString();
       }
 
+      function getValueEditor(kind) {
+        if (kind === 'speed') {
+          return {
+            button: els.speedValueBtn,
+            display: els.speedValue,
+            input: els.speedValueInput
+          };
+        }
+
+        return {
+          button: els.fontSizeValueBtn,
+          display: els.fontSizeValue,
+          input: els.fontSizeValueInput
+        };
+      }
+
+      function parseFiniteNumber(value, fallback) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
       function formatClockDuration(seconds) {
         if (!isFinite(seconds) || seconds < 0) return '--';
 
@@ -353,14 +384,95 @@
       }
 
       function applyPreferenceUi() {
-        els.speedInput.value = state.speed.toFixed(2);
-        els.fontSizeInput.value = String(state.fontSize);
-        els.speedValue.textContent = formatControlValue(state.speed, 2);
-        els.fontSizeValue.textContent = formatControlValue(state.fontSize, 0);
+        syncSpeedUi();
+        syncFontSizeUi();
         els.readerContent.style.fontSize = state.fontSize + 'px';
         applyThemeUi();
         applyFocusUi();
         applyAlignmentUi();
+      }
+
+      function syncSpeedUi() {
+        els.speedInput.value = state.speed.toFixed(2);
+        els.speedValue.textContent = formatControlValue(state.speed, 2);
+        els.speedValueInput.value = state.speed.toFixed(2);
+      }
+
+      function syncFontSizeUi() {
+        els.fontSizeInput.value = String(state.fontSize);
+        els.fontSizeValue.textContent = formatControlValue(state.fontSize, 0);
+        els.fontSizeValueInput.value = String(state.fontSize);
+      }
+
+      function setSpeed(value, options) {
+        state.speed = clamp(parseFiniteNumber(value, state.speed), SPEED_MIN, SPEED_MAX);
+        syncSpeedUi();
+        updateProgress();
+
+        if (!options || !options.skipPersist) {
+          savePreferences();
+        }
+        if (state.isPlaying && (!options || !options.skipRestart)) {
+          startPlayback();
+        }
+      }
+
+      function setFontSize(value, options) {
+        state.fontSize = clamp(
+          Math.round(parseFiniteNumber(value, state.fontSize)),
+          FONT_SIZE_MIN,
+          FONT_SIZE_MAX
+        );
+        syncFontSizeUi();
+        els.readerContent.style.fontSize = state.fontSize + 'px';
+        recalculateRenderedLineWeights();
+        updateProgress();
+
+        if (options && options.keepActiveLineVisible) {
+          const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
+          if (lineEl) keepLineInView(lineEl, { force: true, durationMs: options.durationMs || 220 });
+        }
+
+        if (!options || !options.skipPersist) {
+          savePreferences();
+        }
+      }
+
+      function openInlineValueEditor(kind) {
+        const editor = getValueEditor(kind);
+        editor.button.hidden = true;
+        editor.input.hidden = false;
+        editor.input.value = kind === 'speed'
+          ? state.speed.toFixed(2)
+          : String(state.fontSize);
+        editor.input.focus();
+        editor.input.select();
+      }
+
+      function commitInlineValueEditor(kind) {
+        if (kind === 'speed') {
+          setSpeed(els.speedValueInput.value);
+        } else {
+          setFontSize(els.fontSizeValueInput.value, {
+            keepActiveLineVisible: true,
+            durationMs: 220
+          });
+        }
+
+        applyPreferenceUi();
+      }
+
+      function closeInlineValueEditor(kind, commit) {
+        const editor = getValueEditor(kind);
+        if (commit) {
+          commitInlineValueEditor(kind);
+        } else {
+          editor.input.value = kind === 'speed'
+            ? state.speed.toFixed(2)
+            : String(state.fontSize);
+        }
+        editor.input.hidden = true;
+        editor.button.hidden = false;
       }
 
       function stopPlayback() {
@@ -480,19 +592,19 @@
 
       function estimateBaseLineDurationMs(line) {
         const text = (line && line.text ? line.text : '').trim();
-        if (!text) return 900;
+        if (!text) return 700;
 
         const words = text.split(/\s+/).filter(Boolean).length;
         const chars = text.length;
         const pauseMarks = (text.match(/[,:;()]/g) || []).length;
         const stopMarks = (text.match(/[.!?]/g) || []).length;
         const cueBonus = line && line.isCue ? 260 : 0;
-        return Math.max(900, (words * 260) + (chars * 4) + (pauseMarks * 65) + (stopMarks * 180) + cueBonus);
+        return Math.max(700, (words * 215) + (chars * 3) + (pauseMarks * 50) + (stopMarks * 150) + cueBonus);
       }
 
       function getLineDurationMs(index) {
         const base = state.lineReadWeights[index] || 900;
-        return Math.round(base * (SPEED_DEFAULT / state.speed));
+        return Math.round(base / state.speed);
       }
 
       function getElapsedDurationMs() {
@@ -514,6 +626,28 @@
         return state.lineReadWeights.reduce(function (sum, unused, index) {
           return sum + getLineDurationMs(index);
         }, 0);
+      }
+
+      function recalculateRenderedLineWeights() {
+        const lineEls = els.readerContent.querySelectorAll('.line');
+        const fontProgress = (state.fontSize - FONT_SIZE_MIN) / Math.max(1, FONT_SIZE_MAX - FONT_SIZE_MIN);
+        const fontFactor = 0.92 + (fontProgress * 0.28);
+
+        state.lineReadWeights = state.lines.map(function (line, index) {
+          const base = estimateBaseLineDurationMs(line);
+          const lineEl = lineEls[index];
+          if (!lineEl) return Math.round(base * fontFactor);
+
+          const computedStyle = window.getComputedStyle(lineEl);
+          const lineHeight = parseFloat(computedStyle.lineHeight) || (state.fontSize * 1.2);
+          const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+          const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+          const measuredHeight = Math.max(0, lineEl.getBoundingClientRect().height - paddingTop - paddingBottom);
+          const renderedRows = Math.max(1, Math.round(measuredHeight / Math.max(1, lineHeight)));
+          const wrapFactor = 1 + ((renderedRows - 1) * 0.38);
+          const sourceBreakFactor = line.sourceBreakBefore ? 1.08 : 1;
+          return Math.round(base * fontFactor * wrapFactor * sourceBreakFactor);
+        });
       }
 
       function schedulePlaybackAdvance() {
@@ -568,6 +702,7 @@
       function updateProgress() {
         if (!state.lines.length) {
           els.currentSectionText.textContent = 'Section --';
+          els.currentSectionText.title = 'Section --';
           els.progressText.textContent = '0%';
           els.progressBar.value = 0;
           els.etaText.textContent = 'ETA --';
@@ -621,7 +756,9 @@
       }
 
       function updateCurrentSectionContext() {
-        els.currentSectionText.textContent = getCurrentSectionLabel();
+        const label = getCurrentSectionLabel();
+        els.currentSectionText.textContent = label;
+        els.currentSectionText.title = label;
       }
 
       function keepLineInView(lineEl, options) {
@@ -732,7 +869,11 @@
 
         const html = state.lines.map((line, idx) => {
           const classes = ['line', `line-${line.kind || 'paragraph'}`];
+          const prevLine = idx > 0 ? state.lines[idx - 1] : null;
+          const isSectionStart = !prevLine || prevLine.sectionId !== line.sectionId;
+          classes.push(isSectionStart ? 'line-section-start' : 'line-continued');
           if (line.isCue) classes.push('line-cue');
+          if (line.sourceBreakBefore) classes.push('line-source-break');
           return `
             <div
               class="${classes.join(' ')}"
@@ -745,6 +886,7 @@
 
         els.readerContent.innerHTML = html;
         els.readerContent.style.fontSize = state.fontSize + 'px';
+        recalculateRenderedLineWeights();
 
         const newIndex = findBestRestoreIndex(restoreMarker || {});
         stopPlayback();
@@ -901,19 +1043,36 @@
         setActiveLine(state.lines.length - 1, true, { force: true, durationMs: 260 });
       });
       els.speedInput.addEventListener('input', function () {
-        state.speed = clamp(parseFloat(this.value), SPEED_MIN, SPEED_MAX);
-        els.speedValue.textContent = formatControlValue(state.speed, 2);
-        updateProgress();
-        savePreferences();
-        if (state.isPlaying) startPlayback();
+        setSpeed(this.value);
       });
       els.fontSizeInput.addEventListener('input', function () {
-        state.fontSize = clamp(parseInt(this.value, 10), FONT_SIZE_MIN, FONT_SIZE_MAX);
-        els.fontSizeValue.textContent = formatControlValue(state.fontSize, 0);
-        els.readerContent.style.fontSize = state.fontSize + 'px';
-        const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
-        if (lineEl) keepLineInView(lineEl, { force: true, durationMs: 220 });
-        savePreferences();
+        setFontSize(this.value, {
+          keepActiveLineVisible: true,
+          durationMs: 220
+        });
+      });
+      els.speedValueBtn.addEventListener('click', function () {
+        openInlineValueEditor('speed');
+      });
+      els.fontSizeValueBtn.addEventListener('click', function () {
+        openInlineValueEditor('font');
+      });
+      ['speed', 'font'].forEach(function (kind) {
+        const editor = getValueEditor(kind);
+        editor.input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            closeInlineValueEditor(kind, true);
+            return;
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeInlineValueEditor(kind, false);
+          }
+        });
+        editor.input.addEventListener('blur', function () {
+          closeInlineValueEditor(kind, true);
+        });
       });
       els.alignBtn.addEventListener('click', function () {
         state.lineAlignment = state.lineAlignment === LINE_ALIGNMENT_LEFT
@@ -1000,23 +1159,20 @@
         }
         if (e.key === '[') {
           e.preventDefault();
-          state.speed = clamp(Math.round((state.speed - 0.05) * 100) / 100, SPEED_MIN, SPEED_MAX);
-          els.speedInput.value = state.speed.toFixed(2);
-          els.speedValue.textContent = formatControlValue(state.speed, 2);
-          updateProgress();
-          savePreferences();
-          if (state.isPlaying) startPlayback();
+          setSpeed(Math.round((state.speed - 0.05) * 100) / 100);
           return;
         }
         if (e.key === ']') {
           e.preventDefault();
-          state.speed = clamp(Math.round((state.speed + 0.05) * 100) / 100, SPEED_MIN, SPEED_MAX);
-          els.speedInput.value = state.speed.toFixed(2);
-          els.speedValue.textContent = formatControlValue(state.speed, 2);
-          updateProgress();
-          savePreferences();
-          if (state.isPlaying) startPlayback();
+          setSpeed(Math.round((state.speed + 0.05) * 100) / 100);
         }
+      });
+
+      window.addEventListener('resize', function () {
+        recalculateRenderedLineWeights();
+        updateProgress();
+        const lineEl = els.readerContent.querySelector(`.line[data-line-index="${state.activeLineIndex}"]`);
+        if (lineEl) keepLineInView(lineEl, { force: true, durationMs: 0 });
       });
 
       window.addEventListener('beforeunload', function () {

@@ -565,13 +565,15 @@ function processParagraph_(paragraph, sections, lines, firstLineIndexBySectionId
 
   firstLineIndexBySectionId[sectionId] = lines.length;
 
-  splitIntoDisplayLines_(text, isHeading ? HEADING_DISPLAY_LINE_LIMIT_ : PARAGRAPH_DISPLAY_LINE_LIMIT_).forEach(function (lineText, localIndex) {
+  splitIntoDisplayLines_(text, isHeading ? HEADING_DISPLAY_LINE_LIMIT_ : PARAGRAPH_DISPLAY_LINE_LIMIT_).forEach(function (displayLine, localIndex) {
+    const lineText = displayLine.text || '';
     lines.push({
       id: buildLineId_(sectionId, localIndex),
       sectionId: sectionId,
       kind: isHeading ? 'heading' : 'paragraph',
       text: lineText,
-      isCue: isCueLine_(lineText)
+      isCue: isCueLine_(lineText),
+      sourceBreakBefore: !!displayLine.sourceBreakBefore
     });
   });
 }
@@ -594,13 +596,15 @@ function processListItem_(item, sections, lines, firstLineIndexBySectionId, next
 
   firstLineIndexBySectionId[sectionId] = lines.length;
 
-  splitIntoDisplayLines_(spokenText, LIST_DISPLAY_LINE_LIMIT_).forEach(function (lineText, localIndex) {
+  splitIntoDisplayLines_(spokenText, LIST_DISPLAY_LINE_LIMIT_).forEach(function (displayLine, localIndex) {
+    const lineText = displayLine.text || '';
     lines.push({
       id: buildLineId_(sectionId, localIndex),
       sectionId: sectionId,
       kind: 'list',
       text: lineText,
-      isCue: isCueLine_(lineText)
+      isCue: isCueLine_(lineText),
+      sourceBreakBefore: !!displayLine.sourceBreakBefore
     });
   });
 }
@@ -660,14 +664,16 @@ function processTableRowWithHeaders_(row, headers, sections, lines, firstLineInd
   firstLineIndexBySectionId[sectionId] = lines.length;
 
   let localIndex = 0;
-  blockLines.forEach(function (lineText) {
-    splitIntoDisplayLines_(lineText, TABLE_DISPLAY_LINE_LIMIT_).forEach(function (displayLine) {
+  blockLines.forEach(function (lineText, blockIndex) {
+    splitIntoDisplayLines_(lineText, TABLE_DISPLAY_LINE_LIMIT_).forEach(function (displayLine, displayIndex) {
+      const displayText = displayLine.text || '';
       lines.push({
         id: buildLineId_(sectionId, localIndex),
         sectionId: sectionId,
         kind: 'table',
-        text: displayLine,
-        isCue: isCueLine_(displayLine)
+        text: displayText,
+        isCue: isCueLine_(displayText),
+        sourceBreakBefore: !!displayLine.sourceBreakBefore || (blockIndex > 0 && displayIndex === 0)
       });
       localIndex += 1;
     });
@@ -741,10 +747,11 @@ function splitIntoDisplayLines_(text, maxChars) {
   const out = [];
   const limit = maxChars || 120;
 
-  paragraphs.forEach(function (paragraph) {
+  paragraphs.forEach(function (paragraph, paragraphIndex) {
     const words = paragraph.split(/\s+/).filter(Boolean);
     if (!words.length) return;
 
+    const paragraphLines = [];
     let current = '';
 
     words.forEach(function (word) {
@@ -752,15 +759,21 @@ function splitIntoDisplayLines_(text, maxChars) {
       if (candidate.length <= limit || !current) {
         current = candidate;
       } else {
-        out.push(current);
+        paragraphLines.push(current);
         current = word;
       }
     });
 
-    if (current) out.push(current);
-  });
+    if (current) paragraphLines.push(current);
+    rebalanceDisplayLines_(paragraphLines, limit);
 
-  rebalanceDisplayLines_(out, limit);
+    paragraphLines.forEach(function (lineText, lineIndex) {
+      out.push({
+        text: lineText,
+        sourceBreakBefore: paragraphIndex > 0 && lineIndex === 0
+      });
+    });
+  });
   return out;
 }
 
